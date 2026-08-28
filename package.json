@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "dev": "npx vercel dev",
-    "build": "echo Vercel detects index.ts as the Hono Function entrypoint",
+    "build": "echo Vercel packages api/[[...path]].ts as the Hono Function entrypoint",
     "typecheck": "tsc --noEmit",
     "deploy": "npx vercel --prod"
   },

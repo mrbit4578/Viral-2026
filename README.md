@@ -6,7 +6,7 @@ Web app tạo video faceless: **ý tưởng → blueprint → ảnh → voice-ov
 
 | Thành phần | Dịch vụ | Mục đích |
 |---|---|---|
-| Web + API | Hono trên **Vercel Functions** | `index.ts` là entrypoint; cùng một Function xử lý UI và `/api/*` |
+| Web + API | Hono trên **Vercel Functions** | `api/[[...path]].ts` là entrypoint; cùng một Function xử lý UI và `/api/*` |
 | Dữ liệu quan hệ | **Neon Postgres** | ideas, blueprints, assets, distribution, metrics, Studio/RAG |
 | Ảnh / audio / video | **Vercel Blob** (Public) | CDN cho media; browser upload thẳng các file lớn |
 | Dựng video / Studio | Browser Canvas + WebAssembly | Không dùng FFmpeg hay filesystem trong Function |
@@ -15,7 +15,7 @@ Vercel không còn tạo Vercel Postgres mới; hãy kết nối **Neon** qua Ve
 
 ### Vì sao bản này không còn 404 khi deploy
 
-Bản cũ chỉ build Cloudflare Pages Worker (`dist/_worker.js`), nên Vercel không có route `/` để phục vụ. Bản này có root [`index.ts`](./index.ts), export Web `fetch` handler của Hono và cấu hình [`vercel.json`](./vercel.json); Vercel nhận đây là Function entrypoint.
+Bản cũ chỉ build Cloudflare Pages Worker (`dist/_worker.js`), nên Vercel không có route `/` để phục vụ. Bản này có [`api/[[...path]].ts`](./api/[[...path]].ts), export Web `fetch` handler của Hono; [`vercel.json`](./vercel.json) rewrite `/` và `/studio` vào Function đó.
 
 ## Luồng media
 
