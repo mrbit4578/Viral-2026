@@ -21,6 +21,7 @@ node_modules/
 .env.production
 .dev.vars
 .env.local
+server/function-bundle.cjs
 
 # logs
 logs/

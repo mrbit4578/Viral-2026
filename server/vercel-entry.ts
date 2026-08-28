@@ -8,19 +8,14 @@ function restorePagePath(request: Request): Request {
   const pagePath = url.searchParams.get('__hono_path')
   if (!pagePath) return request
 
-  // The two page rewrites enter this Function as /api/page. Restore their original
-  // pathname so the same Hono application can render / and /studio.
+  // / and /studio are rewritten to /api/page by vercel.json. Restore the
+  // original pathname before Hono matches the application route.
   url.pathname = pagePath
   url.searchParams.delete('__hono_path')
   return new Request(url, request)
 }
 
-/**
- * Vercel Serverless Function catch-all. /api/* reaches it directly; / and
- * /studio are rewritten here by vercel.json and then restored above.
- */
-export default {
-  fetch(request: Request) {
-    return app.fetch(restorePagePath(request), createBindings(runtimeEnv))
-  },
+/** Bundled into server/function-bundle.cjs during `npm run build`. */
+export default function handler(request: Request): Response | Promise<Response> {
+  return app.fetch(restorePagePath(request), createBindings(runtimeEnv))
 }
