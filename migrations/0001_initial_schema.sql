@@ -1,6 +1,6 @@
--- Faceless Forge — schema (Cloudflare D1)
+-- Faceless Forge — Neon Postgres schema for Vercel
+-- Run this once in the Neon SQL Editor after connecting Neon to Vercel.
 
--- 1. Ý tưởng thô người dùng nhập + bản cải tiến của AI
 CREATE TABLE IF NOT EXISTS ideas (
   id TEXT PRIMARY KEY,
   raw_topic TEXT NOT NULL,
@@ -11,59 +11,52 @@ CREATE TABLE IF NOT EXISTS ideas (
   tone TEXT,
   duration_sec INTEGER DEFAULT 45,
   goal TEXT,
-  refined_json TEXT,            -- JSON: các phương án ý tưởng đã cải tiến
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  refined_json TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Blueprint (kịch bản + shot list + SEO + monetization)
 CREATE TABLE IF NOT EXISTS blueprints (
   id TEXT PRIMARY KEY,
-  idea_id TEXT,
+  idea_id TEXT REFERENCES ideas(id),
   title TEXT,
   concept TEXT,
   viral_score INTEGER DEFAULT 0,
   duration_sec INTEGER DEFAULT 45,
   language TEXT,
   platform TEXT,
-  data_json TEXT NOT NULL,      -- JSON blueprint đầy đủ
-  status TEXT DEFAULT 'draft',  -- draft | assets_ready | rendered | published
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (idea_id) REFERENCES ideas(id)
+  data_json TEXT NOT NULL,
+  status TEXT DEFAULT 'draft',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Media assets (ảnh / audio / video) — nội dung nằm trên R2
 CREATE TABLE IF NOT EXISTS assets (
   id TEXT PRIMARY KEY,
-  blueprint_id TEXT,
-  kind TEXT NOT NULL,           -- image | audio | video | srt
+  blueprint_id TEXT REFERENCES blueprints(id),
+  kind TEXT NOT NULL,
   shot_index INTEGER DEFAULT 0,
   r2_key TEXT NOT NULL,
   content_type TEXT,
-  size INTEGER DEFAULT 0,
+  size BIGINT DEFAULT 0,
   prompt TEXT,
   meta_json TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (blueprint_id) REFERENCES blueprints(id)
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Gói phân phối cho từng nền tảng MXH
 CREATE TABLE IF NOT EXISTS distributions (
   id TEXT PRIMARY KEY,
-  blueprint_id TEXT NOT NULL,
-  platform TEXT NOT NULL,       -- tiktok | facebook | instagram | x | youtube
+  blueprint_id TEXT NOT NULL REFERENCES blueprints(id),
+  platform TEXT NOT NULL,
   caption TEXT,
   hashtags TEXT,
   best_time TEXT,
   pack_json TEXT,
-  status TEXT DEFAULT 'ready',  -- ready | scheduled | published
-  published_at TEXT,
+  status TEXT DEFAULT 'ready',
+  published_at TIMESTAMPTZ,
   post_url TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (blueprint_id) REFERENCES blueprints(id)
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Số liệu hiệu suất + doanh thu thụ động (nhập tay / cập nhật)
 CREATE TABLE IF NOT EXISTS metrics (
   id TEXT PRIMARY KEY,
   distribution_id TEXT,
@@ -74,30 +67,28 @@ CREATE TABLE IF NOT EXISTS metrics (
   comments INTEGER DEFAULT 0,
   shares INTEGER DEFAULT 0,
   followers_gained INTEGER DEFAULT 0,
-  revenue_usd REAL DEFAULT 0,
-  revenue_source TEXT,          -- creator_fund | affiliate | brand | product | adsense
-  recorded_at TEXT DEFAULT CURRENT_TIMESTAMP
+  revenue_usd DOUBLE PRECISION DEFAULT 0,
+  revenue_source TEXT,
+  recorded_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Job theo dõi tiến trình dài
 CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL,
-  status TEXT DEFAULT 'pending', -- pending | running | done | error
+  status TEXT DEFAULT 'pending',
   progress INTEGER DEFAULT 0,
   message TEXT,
   params_json TEXT,
   result_json TEXT,
   error TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. Kho key-value thay cho Cloudflare KV (hosted deploy không hỗ trợ KV)
 CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_blueprints_idea ON blueprints(idea_id);

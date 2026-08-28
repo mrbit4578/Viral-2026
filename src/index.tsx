@@ -1,6 +1,6 @@
 /**
  * Faceless Forge — Video Production OS on the edge.
- * Hono + Cloudflare Pages (D1 + R2).
+ * Hono + Vercel Functions (Neon Postgres + Vercel Blob).
  */
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
@@ -9,7 +9,18 @@ import { PLATFORMS } from './types'
 import { DEFAULT_TEXT_MODEL, TEXT_MODELS, hasLLM } from './lib/llm'
 import { generateBlueprint, fallbackBlueprint, shotsToSRT } from './lib/forge'
 import { generateIdeas, refineIdea } from './lib/ideas'
-import { IMAGE_MODELS, VOICES, generateImageBytes, generateSpeech, putAsset, uid } from './lib/media'
+import {
+  IMAGE_MODELS,
+  VOICES,
+  assetUrl,
+  deleteAsset,
+  generateImageBytes,
+  generateSpeech,
+  putAsset,
+  uid,
+} from './lib/media'
+import { createDatabase } from './lib/db'
+import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { PLATFORM_SPECS, buildDistributionPacks, buildRevenueModel } from './lib/distribution'
 import { parseSRT, composeSRT } from './lib/srt'
 import { TRANSLATE_LANGS, translateTexts, translateSRT } from './lib/translate'
@@ -47,17 +58,11 @@ app.get('/api/health', async (c) => {
   } catch {
     db = false
   }
-  let r2 = false
-  try {
-    await c.env.R2.head('__healthcheck__')
-    r2 = true
-  } catch {
-    r2 = Boolean(c.env.R2)
-  }
+  const blob = Boolean(c.env.BLOB_READ_WRITE_TOKEN)
   return c.json({
     status: 'ok',
     db,
-    r2,
+    blob,
     llm: hasLLM(c.env),
     engines: { image: true, tts: true, video: 'browser-canvas' },
     time: now(),
@@ -219,7 +224,7 @@ app.get('/api/forge/blueprints/:id', async (c) => {
   return c.json({
     ...row,
     blueprint,
-    assets: (assets || []).map((a: any) => ({ ...a, url: `/api/media/${a.r2_key}` })),
+    assets: (assets || []).map((a: any) => ({ ...a, url: assetUrl(a.r2_key) })),
   })
 })
 
@@ -228,7 +233,7 @@ app.delete('/api/forge/blueprints/:id', async (c) => {
   const { results } = await c.env.DB.prepare(`SELECT r2_key FROM assets WHERE blueprint_id = ?`).bind(id).all()
   for (const row of (results || []) as any[]) {
     try {
-      await c.env.R2.delete(row.r2_key)
+      await deleteAsset(c.env, row.r2_key)
     } catch {
       /* bỏ qua */
     }
@@ -272,7 +277,7 @@ app.post('/api/media/image', async (c) => {
             String(body.blueprint_id),
             'image',
             Number(body.shot_index) || 0,
-            key,
+            saved.key,
             contentType,
             saved.size,
             prompt.slice(0, 800),
@@ -314,7 +319,7 @@ app.post('/api/media/speech', async (c) => {
             String(body.blueprint_id),
             'audio',
             Number(body.shot_index) || 0,
-            key,
+            saved.key,
             'audio/mpeg',
             saved.size,
             text.slice(0, 500),
@@ -334,16 +339,16 @@ app.post('/api/media/speech', async (c) => {
 
 // ------------------------------------------------------------------ BƯỚC 6: Lưu video render từ browser
 
-app.put('/api/media/video/:blueprintId', async (c) => {
+app.post('/api/media/video/:blueprintId', async (c) => {
   const blueprintId = c.req.param('blueprintId')
-  const contentType = c.req.header('content-type') || 'video/webm'
-  const bytes = await c.req.arrayBuffer()
-  if (!bytes || bytes.byteLength < 2048) return c.json(bad('Dữ liệu video không hợp lệ'), 400)
-  if (bytes.byteLength > 90 * 1024 * 1024) return c.json(bad('Video quá lớn (tối đa 90MB)'), 400)
-
-  const ext = contentType.includes('mp4') ? 'mp4' : 'webm'
-  const key = `videos/${uid('vid_')}.${ext}`
-  const saved = await putAsset(c.env, key, bytes, contentType)
+  const body = await c.req.json().catch(() => ({}))
+  const url = String(body.url || '')
+  const contentType = String(body.content_type || 'video/mp4')
+  const size = Math.max(0, Number(body.size) || 0)
+  if (!/^https:\/\/[^/]+\.public\.blob\.vercel-storage\.com\//.test(url)) {
+    return c.json(bad('URL Vercel Blob không hợp lệ'), 400)
+  }
+  if (size && size > 120 * 1024 * 1024) return c.json(bad('Video quá lớn (tối đa 120MB)'), 400)
 
   const assetId = uid('as_')
   try {
@@ -351,7 +356,7 @@ app.put('/api/media/video/:blueprintId', async (c) => {
       `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, created_at)
        VALUES (?,?,?,?,?,?,?,?)`
     )
-      .bind(assetId, blueprintId, 'video', 0, key, contentType, saved.size, now())
+      .bind(assetId, blueprintId, 'video', 0, url, contentType, size, now())
       .run()
     await c.env.DB.prepare(`UPDATE blueprints SET status = 'rendered', updated_at = ? WHERE id = ?`)
       .bind(now(), blueprintId)
@@ -359,46 +364,42 @@ app.put('/api/media/video/:blueprintId', async (c) => {
   } catch (e) {
     console.error('save video asset failed', e)
   }
-  return c.json({ id: assetId, url: saved.url, key, size: saved.size })
+  return c.json({ id: assetId, url, key: url, size })
 })
 
-// ------------------------------------------------------------------ serve media từ R2
+// ------------------------------------------------------------------ Vercel Blob upload & legacy media endpoint
+
+app.post('/api/blob/upload', async (c) => {
+  if (!c.env.BLOB_READ_WRITE_TOKEN) return c.json(bad('Chưa cấu hình Vercel Blob'), 503)
+  try {
+    const body = (await c.req.json()) as HandleUploadBody
+    const response = await handleUpload({
+      body,
+      request: c.req.raw,
+      token: c.env.BLOB_READ_WRITE_TOKEN,
+      onBeforeGenerateToken: async (pathname) => {
+        if (!/^(videos|audio|segments|images)\//.test(pathname) || pathname.includes('..')) {
+          throw new Error('Đường dẫn upload không hợp lệ')
+        }
+        return {
+          addRandomSuffix: false,
+          maximumSizeInBytes: 120 * 1024 * 1024,
+          tokenPayload: JSON.stringify({ pathname }),
+        }
+      },
+      onUploadCompleted: async () => {
+        // Client xác nhận metadata tại endpoint video sau khi Blob hoàn thành.
+      },
+    })
+    return c.json(response)
+  } catch (e: any) {
+    return c.json(bad(`Không tạo được quyền upload Blob: ${String(e?.message || e).slice(0, 200)}`, 400), 400)
+  }
+})
 
 app.get('/api/media/*', async (c) => {
-  const key = c.req.path.replace('/api/media/', '')
-  if (!key || key.includes('..')) return c.json(bad('Key không hợp lệ'), 400)
-
-  const range = c.req.header('range')
-  const object = range
-    ? await c.env.R2.get(key, { range: parseRange(range) })
-    : await c.env.R2.get(key)
-  if (!object) return c.json(bad('File không tồn tại', 404), 404)
-
-  const headers = new Headers()
-  object.writeHttpMetadata(headers)
-  headers.set('etag', object.httpEtag)
-  headers.set('cache-control', 'public, max-age=31536000, immutable')
-  headers.set('accept-ranges', 'bytes')
-  if (c.req.query('download')) {
-    headers.set('content-disposition', `attachment; filename="${key.split('/').pop()}"`)
-  }
-  if (range && object.range) {
-    const r = object.range as any
-    const offset = r.offset ?? 0
-    const length = r.length ?? object.size
-    headers.set('content-range', `bytes ${offset}-${offset + length - 1}/${object.size}`)
-    return new Response(object.body, { status: 206, headers })
-  }
-  return new Response(object.body, { headers })
+  return c.json(bad('Media mới được phục vụ trực tiếp qua Vercel Blob URL'), 404)
 })
-
-function parseRange(header: string): { offset: number; length?: number } | undefined {
-  const match = /bytes=(\d*)-(\d*)/.exec(header)
-  if (!match) return undefined
-  const start = match[1] ? Number(match[1]) : 0
-  const end = match[2] ? Number(match[2]) : undefined
-  return end !== undefined ? { offset: start, length: end - start + 1 } : { offset: start }
-}
 
 // ------------------------------------------------------------------ BƯỚC 7: Phân phối MXH
 
@@ -601,9 +602,9 @@ app.post('/api/forge/srt', async (c) => {
 })
 
 // ================================================================== STUDIO (WASM)
-// 5 tính năng gốc chạy WebAssembly trong browser; server chỉ lo LLM + lưu trữ.
+// 5 tính năng gốc chạy WebAssembly trong browser; Function chỉ lo LLM + lưu trữ.
 
-// ---- lưu file media tuỳ ý do WASM tạo ra (audio tách, video dub, đoạn băm...)
+// ---- fallback cho file nhỏ do WASM tạo ra; file lớn upload trực tiếp lên Vercel Blob.
 app.put('/api/studio/upload/:kind', async (c) => {
   const kind = c.req.param('kind')
   const allowed = ['audio', 'videos', 'segments', 'docs', 'images']
@@ -612,7 +613,9 @@ app.put('/api/studio/upload/:kind', async (c) => {
   const name = (c.req.query('name') || '').replace(/[^\w.\-]/g, '_').slice(0, 80)
   const bytes = await c.req.arrayBuffer()
   if (!bytes || bytes.byteLength < 64) return c.json(bad('Dữ liệu file không hợp lệ'), 400)
-  if (bytes.byteLength > 120 * 1024 * 1024) return c.json(bad('File quá lớn (tối đa 120MB)'), 400)
+  if (bytes.byteLength > 4 * 1024 * 1024) {
+    return c.json(bad('File trên 4MB phải upload trực tiếp lên Vercel Blob'), 413)
+  }
 
   const ext =
     (name.includes('.') ? name.split('.').pop() : '') ||
@@ -793,5 +796,15 @@ app.onError((err, c) => {
   console.error('unhandled', err)
   return c.json(bad(`Lỗi hệ thống: ${String(err?.message || err).slice(0, 200)}`, 500), 500)
 })
+
+export function createBindings(environment: Record<string, string | undefined>): Bindings {
+  const databaseUrl = environment.DATABASE_URL || environment.POSTGRES_URL || environment.NEON_DATABASE_URL
+  return {
+    DB: createDatabase(databaseUrl),
+    BLOB_READ_WRITE_TOKEN: environment.BLOB_READ_WRITE_TOKEN,
+    OPENAI_API_KEY: environment.OPENAI_API_KEY,
+    OPENAI_BASE_URL: environment.OPENAI_BASE_URL,
+  }
+}
 
 export default app

@@ -246,7 +246,7 @@ export function renderStudio(): string {
         <label>Ghi lên cloud
           <select id="bam-upload">
             <option value="no" selected>Không — chỉ tải về máy</option>
-            <option value="yes">Có — lưu vào R2 để chia sẻ</option>
+            <option value="yes">Có — lưu vào Vercel Blob để chia sẻ</option>
           </select>
         </label>
       </div>
@@ -272,7 +272,7 @@ export function renderStudio(): string {
         <div class="card-head">
           <div><span class="step">05</span><h2>Tài liệu</h2></div>
           <p class="hint">PDF/DOCX được đọc ngay trong trình duyệt (pdf.js WASM), chỉ phần văn bản đã tách mới gửi lên
-          để lập chỉ mục TF-IDF trên D1.</p>
+          để lập chỉ mục TF-IDF trên Neon Postgres.</p>
         </div>
 
         <div class="drop-zone compact" id="rag-drop">

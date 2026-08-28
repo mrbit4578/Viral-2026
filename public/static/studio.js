@@ -4,7 +4,7 @@
  *  02 Dịch SRT : LLM theo lô 25 dòng (server) — giữ nguyên timing
  *  03 Video Dub: ffmpeg.wasm tách audio → Whisper → dịch → TTS → trộn → ghép
  *  04 Băm      : ffmpeg.wasm segment -c copy
- *  05 RAG      : pdf.js/docx đọc trong browser → TF-IDF trên D1 → LLM có citation
+ *  05 RAG      : pdf.js/docx đọc trong browser → TF-IDF trên Neon → LLM có citation
  */
 
 /* ============================================================ tiện ích chung */
@@ -57,6 +57,18 @@ async function api(path, opts = {}) {
   }
   if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`)
   return data
+}
+
+let blobClientPromise = null
+async function uploadToVercelBlob(blob, pathname, payload = {}) {
+  // Client upload keeps large Dub/Băm results out of the Vercel Function body.
+  blobClientPromise ||= import('https://esm.sh/@vercel/blob@2.8.0/client')
+  const { upload } = await blobClientPromise
+  return upload(pathname, blob, {
+    access: 'public',
+    handleUploadUrl: '/api/blob/upload',
+    clientPayload: JSON.stringify(payload),
+  })
 }
 
 /** Thanh tiến độ dùng chung cho mọi tab */
@@ -971,14 +983,13 @@ function renderDubResult({ audioBlob, videoBlob, srtOriginal, srtTranslated, seg
 }
 
 async function uploadToCloud(blob, kind, name) {
-  const res = await fetch(`/api/studio/upload/${kind}?name=${encodeURIComponent(name)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': blob.type || 'application/octet-stream' },
-    body: blob,
-  })
-  const data = await res.json().catch(() => null)
-  if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`)
-  return data
+  const safeName = String(name || 'media.bin').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-90)
+  const result = await uploadToVercelBlob(
+    blob,
+    `${kind}/st_${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`,
+    { kind, name: safeName },
+  )
+  return { url: result.url, key: result.pathname || result.url, size: blob.size, name: safeName }
 }
 
 /* ============================================================ 04 · BĂM STUDIO */

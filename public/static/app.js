@@ -52,6 +52,18 @@ async function api(path, options = {}) {
   return data;
 }
 
+let blobClientPromise = null;
+async function uploadToVercelBlob(file, pathname, payload = {}) {
+  // Blob client upload bypasses the 4.5 MB Vercel Function request limit.
+  blobClientPromise ||= import('https://esm.sh/@vercel/blob@2.8.0/client');
+  const { upload } = await blobClientPromise;
+  return upload(pathname, file, {
+    access: 'public',
+    handleUploadUrl: '/api/blob/upload',
+    clientPayload: JSON.stringify(payload),
+  });
+}
+
 function busy(button, label) {
   if (!button) return () => {};
   const original = button.innerHTML;
@@ -95,9 +107,9 @@ async function boot() {
 
     const badge = $('#health-status');
     const text = $('#health-text');
-    if (health.db && health.llm) { badge.className = 'status'; text.textContent = 'Studio ready · AI on'; }
-    else if (health.db) { badge.className = 'status warn'; text.textContent = 'Studio ready · Local plan mode'; }
-    else { badge.className = 'status err'; text.textContent = 'DB chưa sẵn sàng'; }
+    if (health.db && health.blob && health.llm) { badge.className = 'status'; text.textContent = 'Studio ready · AI on'; }
+    else if (health.db && health.blob) { badge.className = 'status warn'; text.textContent = 'Studio ready · Local plan mode'; }
+    else { badge.className = 'status err'; text.textContent = 'Database / Blob chưa sẵn sàng'; }
 
     $('#model').innerHTML = config.text_models
       .map((m) => `<option value="${safe(m)}"${m === config.default_text_model ? ' selected' : ''}>${safe(m)}</option>`)
@@ -699,16 +711,18 @@ async function renderVideo() {
     const blob = new Blob(chunks, { type });
     if (blob.size < 2048) throw new Error('Video rỗng — thử lại');
 
-    const res = await fetch(`/api/media/video/${encodeURIComponent(state.blueprintId)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': type },
-      body: blob,
+    const ext = type.includes('mp4') ? 'mp4' : 'webm';
+    const upload = await uploadToVercelBlob(
+      blob,
+      `videos/vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`,
+      { blueprintId: state.blueprintId, kind: 'video' },
+    );
+    const saved = await api(`/api/media/video/${encodeURIComponent(state.blueprintId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ url: upload.url, size: blob.size, content_type: type }),
     });
-    const saved = await res.json();
-    if (!res.ok) throw new Error(saved.error || 'Lưu video thất bại');
 
     state.video = { url: saved.url, key: saved.key };
-    const ext = type.includes('mp4') ? 'mp4' : 'webm';
     const sizeMB = (saved.size / 1024 / 1024).toFixed(2);
 
     progress('render', 100, `Hoàn tất · ${sizeMB} MB · ${ext.toUpperCase()}`);

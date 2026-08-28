@@ -32,7 +32,8 @@ export async function ask(
   system: string,
   user: string,
   model = DEFAULT_TEXT_MODEL,
-  timeoutMs = 90_000
+  // Keep calls within the 60-second Vercel Hobby Function duration.
+  timeoutMs = 50_000
 ): Promise<string> {
   const { apiKey, baseURL } = resolveKey(env)
   const chosen = TEXT_MODELS[model] || DEFAULT_TEXT_MODEL

@@ -1,6 +1,8 @@
+import type { AppDatabase } from './lib/db'
+
 export type Bindings = {
-  DB: D1Database
-  R2: R2Bucket
+  DB: AppDatabase
+  BLOB_READ_WRITE_TOKEN?: string
   OPENAI_API_KEY?: string
   OPENAI_BASE_URL?: string
 }

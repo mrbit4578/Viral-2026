@@ -1,6 +1,6 @@
 /**
  * RAG engine — port của backend/rag_engine.py
- * TF-IDF cosine retrieval thuần TypeScript trên D1 (thay MongoDB),
+ * TF-IDF cosine retrieval thuần TypeScript trên Neon Postgres (thay MongoDB),
  * LLM trả lời có citation + sinh kịch bản video.
  */
 import { ask, hasLLM } from './llm'
@@ -78,7 +78,7 @@ export async function ingestDocument(
     .bind(doc.id, doc.name, doc.size, doc.chunk_count, doc.char_count, doc.source, doc.created_at)
     .run()
 
-  // D1 batch — chia nhỏ để tránh vượt giới hạn statement
+  // Chia nhỏ batch để truy vấn Postgres luôn gọn và dễ retry.
   const stmt = env.DB.prepare(
     `INSERT INTO rag_chunks (id, doc_id, doc_name, idx, text, tokens) VALUES (?, ?, ?, ?, ?, ?)`,
   )

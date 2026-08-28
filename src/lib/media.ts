@@ -1,8 +1,8 @@
 /**
- * Media library — tạo ảnh, tạo giọng đọc, lưu lên R2.
- * Thay cho ai_engine.generate_images / tts_engine.generate_tts của bản FastAPI,
- * dùng HTTP API thuần để chạy được trên Cloudflare Workers.
+ * Media library — tạo ảnh, tạo giọng đọc, lưu trên Vercel Blob.
+ * Thay cho filesystem/R2 của bản cũ để chạy được trên Vercel Functions.
  */
+import { del, put } from '@vercel/blob'
 import type { Bindings } from '../types'
 
 // ---------------------------------------------------------------- helpers
@@ -17,9 +17,27 @@ export async function putAsset(
   body: ArrayBuffer | Uint8Array,
   contentType: string
 ): Promise<{ key: string; size: number; url: string }> {
-  await env.R2.put(key, body, { httpMetadata: { contentType } })
+  if (!env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error('Chưa cấu hình BLOB_READ_WRITE_TOKEN (Vercel Blob)')
+  }
   const size = body instanceof Uint8Array ? body.byteLength : body.byteLength
-  return { key, size, url: `/api/media/${key}` }
+  const blob = await put(key, body, {
+    access: 'public',
+    addRandomSuffix: false,
+    contentType,
+    token: env.BLOB_READ_WRITE_TOKEN,
+  })
+  // Lưu URL trực tiếp: Vercel Blob CDN phục vụ file lớn tốt hơn việc proxy qua Function.
+  return { key: blob.url, size, url: blob.url }
+}
+
+export function assetUrl(key: string): string {
+  return /^https:\/\//i.test(key) ? key : `/api/media/${encodeURIComponent(key)}`
+}
+
+export async function deleteAsset(env: Bindings, key: string): Promise<void> {
+  if (!env.BLOB_READ_WRITE_TOKEN || !/^https:\/\//i.test(key)) return
+  await del(key, { token: env.BLOB_READ_WRITE_TOKEN })
 }
 
 // ---------------------------------------------------------------- ảnh
@@ -44,7 +62,8 @@ export async function generateImageBytes(
     `?width=${width}&height=${height}&model=${model}&seed=${seed}&nologo=true&safe=true`
 
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 90_000)
+  // Keep remote generation below the Function execution ceiling on Vercel.
+  const timer = setTimeout(() => controller.abort(), 50_000)
   try {
     const res = await fetch(url, { signal: controller.signal })
     if (!res.ok) throw new Error(`Image API ${res.status}`)
