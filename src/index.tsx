@@ -1,0 +1,797 @@
+/**
+ * Faceless Forge — Video Production OS on the edge.
+ * Hono + Cloudflare Pages (D1 + R2).
+ */
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import type { Bindings, Blueprint, IdeaBrief, Platform } from './types'
+import { PLATFORMS } from './types'
+import { DEFAULT_TEXT_MODEL, TEXT_MODELS, hasLLM } from './lib/llm'
+import { generateBlueprint, fallbackBlueprint, shotsToSRT } from './lib/forge'
+import { generateIdeas, refineIdea } from './lib/ideas'
+import { IMAGE_MODELS, VOICES, generateImageBytes, generateSpeech, putAsset, uid } from './lib/media'
+import { PLATFORM_SPECS, buildDistributionPacks, buildRevenueModel } from './lib/distribution'
+import { parseSRT, composeSRT } from './lib/srt'
+import { TRANSLATE_LANGS, translateTexts, translateSRT } from './lib/translate'
+import {
+  askDocs,
+  deleteDocument,
+  generateVideoScript,
+  ingestDocument,
+  listDocuments,
+} from './lib/rag'
+import { renderPage } from './page'
+import { renderStudio } from './studio-page'
+
+const app = new Hono<{ Bindings: Bindings }>()
+
+app.use('/api/*', cors())
+
+const now = () => new Date().toISOString()
+const bad = (msg: string, status = 400) => ({ error: msg, status })
+const safeJSON = (raw: any) => {
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw || {}
+  } catch {
+    return {}
+  }
+}
+
+// ------------------------------------------------------------------ health
+
+app.get('/api/health', async (c) => {
+  let db = false
+  try {
+    await c.env.DB.prepare('SELECT 1').first()
+    db = true
+  } catch {
+    db = false
+  }
+  let r2 = false
+  try {
+    await c.env.R2.head('__healthcheck__')
+    r2 = true
+  } catch {
+    r2 = Boolean(c.env.R2)
+  }
+  return c.json({
+    status: 'ok',
+    db,
+    r2,
+    llm: hasLLM(c.env),
+    engines: { image: true, tts: true, video: 'browser-canvas' },
+    time: now(),
+  })
+})
+
+app.get('/api/config', (c) =>
+  c.json({
+    text_models: Object.keys(TEXT_MODELS),
+    default_text_model: DEFAULT_TEXT_MODEL,
+    image_models: IMAGE_MODELS,
+    voices: VOICES,
+    platforms: PLATFORMS.map((p) => ({ key: p, ...PLATFORM_SPECS[p] })),
+    llm: hasLLM(c.env),
+  })
+)
+
+// ------------------------------------------------------------------ BƯỚC 1: Ý tưởng
+
+app.post('/api/ideas/generate', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const niche = String(body.niche || '').trim()
+  if (!niche) return c.json(bad('Hãy nhập ngách nội dung (niche)'), 400)
+
+  const ideas = await generateIdeas(c.env, {
+    niche,
+    audience: String(body.audience || '18–34 tuổi'),
+    platform: String(body.platform || 'TikTok & YouTube Shorts'),
+    language: String(body.language || 'Tiếng Việt'),
+    count: Number(body.count || 5),
+    model: String(body.model || DEFAULT_TEXT_MODEL),
+  })
+  return c.json({ ideas, ai: hasLLM(c.env) })
+})
+
+// ------------------------------------------------------------------ BƯỚC 2: Cải tiến ý tưởng
+
+app.post('/api/ideas/refine', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const topic = String(body.topic || '').trim()
+  if (topic.length < 3) return c.json(bad('Chủ đề quá ngắn'), 400)
+
+  const refined = await refineIdea(c.env, {
+    topic,
+    niche: String(body.niche || 'Giáo dục / kiến thức'),
+    audience: String(body.audience || '18–34 tuổi'),
+    platform: String(body.platform || 'TikTok & YouTube Shorts'),
+    language: String(body.language || 'Tiếng Việt'),
+    model: String(body.model || DEFAULT_TEXT_MODEL),
+  })
+
+  const ideaId = uid('idea_')
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO ideas (id, raw_topic, niche, audience, platform, language, tone, duration_sec, goal, refined_json, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+    )
+      .bind(
+        ideaId,
+        topic,
+        String(body.niche || ''),
+        String(body.audience || ''),
+        String(body.platform || ''),
+        String(body.language || 'Tiếng Việt'),
+        String(body.tone || ''),
+        Number(body.duration_sec || 45),
+        String(body.goal || ''),
+        JSON.stringify(refined),
+        now()
+      )
+      .run()
+  } catch (e) {
+    console.error('save idea failed', e)
+  }
+
+  return c.json({ idea_id: ideaId, refined, ai: hasLLM(c.env) })
+})
+
+// ------------------------------------------------------------------ BƯỚC 3: Blueprint
+
+app.post('/api/forge/blueprint', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const topic = String(body.topic || '').trim()
+  if (topic.length < 3) return c.json(bad('Hãy nhập chủ đề cụ thể hơn (tối thiểu 3 ký tự)'), 400)
+
+  const brief: IdeaBrief = {
+    topic: topic.slice(0, 300),
+    niche: String(body.niche || 'Giáo dục / kiến thức'),
+    audience: String(body.audience || '18–34 tuổi'),
+    platform: String(body.platform || 'TikTok & YouTube Shorts'),
+    duration_sec: Math.max(15, Math.min(180, Number(body.duration_sec) || 45)),
+    tone: String(body.tone || 'Kể chuyện giàu nhịp'),
+    language: String(body.language || 'Tiếng Việt'),
+    goal: String(body.goal || 'Tăng khán giả cho kênh'),
+    model: String(body.model || DEFAULT_TEXT_MODEL),
+  }
+
+  const blueprint = await generateBlueprint(c.env, brief)
+  const id = uid('bp_')
+
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO blueprints (id, idea_id, title, concept, viral_score, duration_sec, language, platform, data_json, status, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+    )
+      .bind(
+        id,
+        body.idea_id ? String(body.idea_id) : null,
+        blueprint.titles?.[0] || blueprint.concept.slice(0, 120),
+        blueprint.concept,
+        blueprint.viral_score,
+        brief.duration_sec,
+        brief.language,
+        brief.platform,
+        JSON.stringify(blueprint),
+        'draft',
+        now(),
+        now()
+      )
+      .run()
+  } catch (e) {
+    console.error('save blueprint failed', e)
+  }
+
+  return c.json({ id, blueprint, srt: shotsToSRT(blueprint.shots), ai: !blueprint.fallback })
+})
+
+app.get('/api/forge/blueprints', async (c) => {
+  const limit = Math.min(50, Number(c.req.query('limit')) || 20)
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, title, concept, viral_score, duration_sec, platform, status, created_at
+       FROM blueprints ORDER BY created_at DESC LIMIT ?`
+    )
+      .bind(limit)
+      .all()
+    return c.json({ blueprints: results || [] })
+  } catch {
+    return c.json({ blueprints: [] })
+  }
+})
+
+app.get('/api/forge/blueprints/:id', async (c) => {
+  const id = c.req.param('id')
+  const row = await c.env.DB.prepare(`SELECT * FROM blueprints WHERE id = ?`).bind(id).first<any>()
+  if (!row) return c.json(bad('Không tìm thấy blueprint', 404), 404)
+  const { results: assets } = await c.env.DB.prepare(
+    `SELECT id, kind, shot_index, r2_key, content_type, size, prompt, created_at
+     FROM assets WHERE blueprint_id = ? ORDER BY kind, shot_index`
+  )
+    .bind(id)
+    .all()
+  let blueprint: Blueprint | null = null
+  try {
+    blueprint = JSON.parse(row.data_json)
+  } catch {
+    blueprint = null
+  }
+  return c.json({
+    ...row,
+    blueprint,
+    assets: (assets || []).map((a: any) => ({ ...a, url: `/api/media/${a.r2_key}` })),
+  })
+})
+
+app.delete('/api/forge/blueprints/:id', async (c) => {
+  const id = c.req.param('id')
+  const { results } = await c.env.DB.prepare(`SELECT r2_key FROM assets WHERE blueprint_id = ?`).bind(id).all()
+  for (const row of (results || []) as any[]) {
+    try {
+      await c.env.R2.delete(row.r2_key)
+    } catch {
+      /* bỏ qua */
+    }
+  }
+  await c.env.DB.batch([
+    c.env.DB.prepare(`DELETE FROM assets WHERE blueprint_id = ?`).bind(id),
+    c.env.DB.prepare(`DELETE FROM distributions WHERE blueprint_id = ?`).bind(id),
+    c.env.DB.prepare(`DELETE FROM metrics WHERE blueprint_id = ?`).bind(id),
+    c.env.DB.prepare(`DELETE FROM blueprints WHERE id = ?`).bind(id),
+  ])
+  return c.json({ deleted: true })
+})
+
+// ------------------------------------------------------------------ BƯỚC 4: Ảnh
+
+app.post('/api/media/image', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const prompt = String(body.prompt || '').trim()
+  if (!prompt) return c.json(bad('Prompt trống'), 400)
+
+  try {
+    const { bytes, contentType } = await generateImageBytes(prompt, {
+      model: String(body.model || 'flux'),
+      width: Number(body.width) || 768,
+      height: Number(body.height) || 1344,
+      seed: body.seed !== undefined ? Number(body.seed) : undefined,
+    })
+    const ext = contentType.includes('png') ? 'png' : 'jpg'
+    const key = `images/${uid('img_')}.${ext}`
+    const saved = await putAsset(c.env, key, bytes, contentType)
+
+    const assetId = uid('as_')
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(
+            assetId,
+            String(body.blueprint_id),
+            'image',
+            Number(body.shot_index) || 0,
+            key,
+            contentType,
+            saved.size,
+            prompt.slice(0, 800),
+            now()
+          )
+          .run()
+      } catch (e) {
+        console.error('save image asset failed', e)
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType })
+  } catch (e: any) {
+    return c.json(bad(`Tạo ảnh thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
+  }
+})
+
+// ------------------------------------------------------------------ BƯỚC 5: Giọng đọc
+
+app.post('/api/media/speech', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const text = String(body.text || '').trim()
+  if (!text) return c.json(bad('Nội dung đọc trống'), 400)
+  if (text.length > 12000) return c.json(bad('Kịch bản quá dài (tối đa 12.000 ký tự)'), 400)
+
+  try {
+    const { bytes, chunks, chars } = await generateSpeech(text, String(body.voice || 'vi'))
+    const key = `audio/${uid('tts_')}.mp3`
+    const saved = await putAsset(c.env, key, bytes, 'audio/mpeg')
+
+    const assetId = uid('as_')
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, meta_json, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(
+            assetId,
+            String(body.blueprint_id),
+            'audio',
+            Number(body.shot_index) || 0,
+            key,
+            'audio/mpeg',
+            saved.size,
+            text.slice(0, 500),
+            JSON.stringify({ voice: body.voice || 'vi', chunks, chars }),
+            now()
+          )
+          .run()
+      } catch (e) {
+        console.error('save audio asset failed', e)
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, chunks, chars })
+  } catch (e: any) {
+    return c.json(bad(`Tạo giọng đọc thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
+  }
+})
+
+// ------------------------------------------------------------------ BƯỚC 6: Lưu video render từ browser
+
+app.put('/api/media/video/:blueprintId', async (c) => {
+  const blueprintId = c.req.param('blueprintId')
+  const contentType = c.req.header('content-type') || 'video/webm'
+  const bytes = await c.req.arrayBuffer()
+  if (!bytes || bytes.byteLength < 2048) return c.json(bad('Dữ liệu video không hợp lệ'), 400)
+  if (bytes.byteLength > 90 * 1024 * 1024) return c.json(bad('Video quá lớn (tối đa 90MB)'), 400)
+
+  const ext = contentType.includes('mp4') ? 'mp4' : 'webm'
+  const key = `videos/${uid('vid_')}.${ext}`
+  const saved = await putAsset(c.env, key, bytes, contentType)
+
+  const assetId = uid('as_')
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, created_at)
+       VALUES (?,?,?,?,?,?,?,?)`
+    )
+      .bind(assetId, blueprintId, 'video', 0, key, contentType, saved.size, now())
+      .run()
+    await c.env.DB.prepare(`UPDATE blueprints SET status = 'rendered', updated_at = ? WHERE id = ?`)
+      .bind(now(), blueprintId)
+      .run()
+  } catch (e) {
+    console.error('save video asset failed', e)
+  }
+  return c.json({ id: assetId, url: saved.url, key, size: saved.size })
+})
+
+// ------------------------------------------------------------------ serve media từ R2
+
+app.get('/api/media/*', async (c) => {
+  const key = c.req.path.replace('/api/media/', '')
+  if (!key || key.includes('..')) return c.json(bad('Key không hợp lệ'), 400)
+
+  const range = c.req.header('range')
+  const object = range
+    ? await c.env.R2.get(key, { range: parseRange(range) })
+    : await c.env.R2.get(key)
+  if (!object) return c.json(bad('File không tồn tại', 404), 404)
+
+  const headers = new Headers()
+  object.writeHttpMetadata(headers)
+  headers.set('etag', object.httpEtag)
+  headers.set('cache-control', 'public, max-age=31536000, immutable')
+  headers.set('accept-ranges', 'bytes')
+  if (c.req.query('download')) {
+    headers.set('content-disposition', `attachment; filename="${key.split('/').pop()}"`)
+  }
+  if (range && object.range) {
+    const r = object.range as any
+    const offset = r.offset ?? 0
+    const length = r.length ?? object.size
+    headers.set('content-range', `bytes ${offset}-${offset + length - 1}/${object.size}`)
+    return new Response(object.body, { status: 206, headers })
+  }
+  return new Response(object.body, { headers })
+})
+
+function parseRange(header: string): { offset: number; length?: number } | undefined {
+  const match = /bytes=(\d*)-(\d*)/.exec(header)
+  if (!match) return undefined
+  const start = match[1] ? Number(match[1]) : 0
+  const end = match[2] ? Number(match[2]) : undefined
+  return end !== undefined ? { offset: start, length: end - start + 1 } : { offset: start }
+}
+
+// ------------------------------------------------------------------ BƯỚC 7: Phân phối MXH
+
+app.post('/api/distribution/build', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const blueprintId = String(body.blueprint_id || '')
+  let blueprint: Blueprint | null = body.blueprint || null
+
+  if (!blueprint && blueprintId) {
+    const row = await c.env.DB.prepare(`SELECT data_json FROM blueprints WHERE id = ?`).bind(blueprintId).first<any>()
+    if (row) {
+      try {
+        blueprint = JSON.parse(row.data_json)
+      } catch {
+        blueprint = null
+      }
+    }
+  }
+  if (!blueprint) return c.json(bad('Cần blueprint để tạo gói phân phối'), 400)
+
+  const requested: Platform[] = Array.isArray(body.platforms) && body.platforms.length
+    ? body.platforms.map((p: any) => String(p).toLowerCase()).filter((p: string) => PLATFORMS.includes(p as Platform))
+    : ['tiktok', 'facebook', 'instagram', 'x']
+
+  const packs = await buildDistributionPacks(
+    c.env,
+    blueprint,
+    requested as Platform[],
+    String(body.language || 'Tiếng Việt'),
+    String(body.model || DEFAULT_TEXT_MODEL)
+  )
+
+  if (blueprintId) {
+    for (const pack of packs) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO distributions (id, blueprint_id, platform, caption, hashtags, best_time, pack_json, status, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(
+            uid('dist_'),
+            blueprintId,
+            pack.platform,
+            pack.caption,
+            pack.hashtags.join(' '),
+            pack.best_time,
+            JSON.stringify(pack),
+            'ready',
+            now()
+          )
+          .run()
+      } catch (e) {
+        console.error('save distribution failed', e)
+      }
+    }
+    try {
+      await c.env.DB.prepare(`UPDATE blueprints SET status = 'published', updated_at = ? WHERE id = ?`)
+        .bind(now(), blueprintId)
+        .run()
+    } catch {
+      /* bỏ qua */
+    }
+  }
+
+  return c.json({ packs, ai: hasLLM(c.env) })
+})
+
+app.get('/api/distribution', async (c) => {
+  const blueprintId = c.req.query('blueprint_id')
+  const query = blueprintId
+    ? c.env.DB.prepare(
+        `SELECT * FROM distributions WHERE blueprint_id = ? ORDER BY created_at DESC LIMIT 50`
+      ).bind(blueprintId)
+    : c.env.DB.prepare(`SELECT * FROM distributions ORDER BY created_at DESC LIMIT 50`)
+  const { results } = await query.all()
+  return c.json({ distributions: results || [] })
+})
+
+app.patch('/api/distribution/:id', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json().catch(() => ({}))
+  await c.env.DB.prepare(
+    `UPDATE distributions SET status = COALESCE(?, status), post_url = COALESCE(?, post_url), published_at = COALESCE(?, published_at) WHERE id = ?`
+  )
+    .bind(
+      body.status ? String(body.status) : null,
+      body.post_url ? String(body.post_url) : null,
+      body.status === 'published' ? now() : null,
+      id
+    )
+    .run()
+  return c.json({ updated: true })
+})
+
+// ------------------------------------------------------------------ Thu nhập thụ động
+
+app.post('/api/revenue/model', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const model = await buildRevenueModel(c.env, {
+    niche: String(body.niche || 'Giáo dục / kiến thức'),
+    platform: String(body.platform || 'TikTok, Facebook, Instagram, X'),
+    audience: String(body.audience || '18–34 tuổi'),
+    language: String(body.language || 'Tiếng Việt'),
+    model: String(body.model || DEFAULT_TEXT_MODEL),
+  })
+  return c.json({ ...model, ai: hasLLM(c.env) })
+})
+
+app.post('/api/metrics', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const platform = String(body.platform || '').toLowerCase()
+  if (!PLATFORMS.includes(platform as Platform)) return c.json(bad('Nền tảng không hợp lệ'), 400)
+
+  const id = uid('m_')
+  await c.env.DB.prepare(
+    `INSERT INTO metrics (id, distribution_id, blueprint_id, platform, views, likes, comments, shares, followers_gained, revenue_usd, revenue_source, recorded_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+  )
+    .bind(
+      id,
+      body.distribution_id ? String(body.distribution_id) : null,
+      body.blueprint_id ? String(body.blueprint_id) : null,
+      platform,
+      Math.max(0, Number(body.views) || 0),
+      Math.max(0, Number(body.likes) || 0),
+      Math.max(0, Number(body.comments) || 0),
+      Math.max(0, Number(body.shares) || 0),
+      Math.max(0, Number(body.followers_gained) || 0),
+      Math.max(0, Number(body.revenue_usd) || 0),
+      String(body.revenue_source || 'creator_fund'),
+      now()
+    )
+    .run()
+  return c.json({ id, saved: true })
+})
+
+app.get('/api/metrics/summary', async (c) => {
+  const totals = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS entries,
+            COALESCE(SUM(views),0) AS views,
+            COALESCE(SUM(likes),0) AS likes,
+            COALESCE(SUM(comments),0) AS comments,
+            COALESCE(SUM(shares),0) AS shares,
+            COALESCE(SUM(followers_gained),0) AS followers,
+            COALESCE(SUM(revenue_usd),0) AS revenue
+     FROM metrics`
+  ).first<any>()
+
+  const { results: byPlatform } = await c.env.DB.prepare(
+    `SELECT platform,
+            COALESCE(SUM(views),0) AS views,
+            COALESCE(SUM(revenue_usd),0) AS revenue,
+            COALESCE(SUM(followers_gained),0) AS followers,
+            COUNT(*) AS posts
+     FROM metrics GROUP BY platform ORDER BY revenue DESC`
+  ).all()
+
+  const { results: bySource } = await c.env.DB.prepare(
+    `SELECT revenue_source, COALESCE(SUM(revenue_usd),0) AS revenue
+     FROM metrics GROUP BY revenue_source ORDER BY revenue DESC`
+  ).all()
+
+  const { results: recent } = await c.env.DB.prepare(
+    `SELECT id, platform, views, revenue_usd, revenue_source, recorded_at
+     FROM metrics ORDER BY recorded_at DESC LIMIT 15`
+  ).all()
+
+  const counts = await c.env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM blueprints) AS blueprints,
+            (SELECT COUNT(*) FROM assets WHERE kind='video') AS videos,
+            (SELECT COUNT(*) FROM distributions) AS packs`
+  ).first<any>()
+
+  const views = Number(totals?.views || 0)
+  const revenue = Number(totals?.revenue || 0)
+  return c.json({
+    totals: {
+      ...totals,
+      rpm: views > 0 ? Number(((revenue / views) * 1000).toFixed(3)) : 0,
+    },
+    by_platform: byPlatform || [],
+    by_source: bySource || [],
+    recent: recent || [],
+    counts: counts || {},
+  })
+})
+
+app.delete('/api/metrics/:id', async (c) => {
+  await c.env.DB.prepare(`DELETE FROM metrics WHERE id = ?`).bind(c.req.param('id')).run()
+  return c.json({ deleted: true })
+})
+
+// ------------------------------------------------------------------ SRT tiện ích
+
+app.post('/api/forge/srt', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const shots = Array.isArray(body.shots) ? body.shots : body?.blueprint?.shots
+  if (!Array.isArray(shots) || !shots.length) return c.json(bad('Không có shot để tạo SRT'), 400)
+  return c.json({ srt: shotsToSRT(shots) })
+})
+
+// ================================================================== STUDIO (WASM)
+// 5 tính năng gốc chạy WebAssembly trong browser; server chỉ lo LLM + lưu trữ.
+
+// ---- lưu file media tuỳ ý do WASM tạo ra (audio tách, video dub, đoạn băm...)
+app.put('/api/studio/upload/:kind', async (c) => {
+  const kind = c.req.param('kind')
+  const allowed = ['audio', 'videos', 'segments', 'docs', 'images']
+  const folder = allowed.includes(kind) ? kind : 'segments'
+  const contentType = c.req.header('content-type') || 'application/octet-stream'
+  const name = (c.req.query('name') || '').replace(/[^\w.\-]/g, '_').slice(0, 80)
+  const bytes = await c.req.arrayBuffer()
+  if (!bytes || bytes.byteLength < 64) return c.json(bad('Dữ liệu file không hợp lệ'), 400)
+  if (bytes.byteLength > 120 * 1024 * 1024) return c.json(bad('File quá lớn (tối đa 120MB)'), 400)
+
+  const ext =
+    (name.includes('.') ? name.split('.').pop() : '') ||
+    (contentType.includes('mp4') ? 'mp4' : contentType.includes('mpeg') ? 'mp3' : 'bin')
+  const key = `${folder}/${uid('st_')}.${ext}`
+  const saved = await putAsset(c.env, key, bytes, contentType)
+  return c.json({ url: saved.url, key, size: saved.size, name: name || key })
+})
+
+// ---- lịch sử phiên Studio
+app.post('/api/studio/jobs', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const kind = String(body.kind || '').slice(0, 30)
+  if (!kind) return c.json(bad('Thiếu kind'), 400)
+  const id = uid('sj_')
+  await c.env.DB.prepare(
+    `INSERT INTO studio_jobs (id, kind, title, status, meta, created_at) VALUES (?,?,?,?,?,?)`
+  )
+    .bind(
+      id,
+      kind,
+      String(body.title || '').slice(0, 200),
+      String(body.status || 'done').slice(0, 20),
+      JSON.stringify(body.meta || {}).slice(0, 20000),
+      now()
+    )
+    .run()
+  return c.json({ id })
+})
+
+app.get('/api/studio/jobs', async (c) => {
+  const kind = c.req.query('kind')
+  const limit = Math.min(Number(c.req.query('limit')) || 30, 100)
+  const q = kind
+    ? c.env.DB.prepare(
+        `SELECT * FROM studio_jobs WHERE kind = ? ORDER BY created_at DESC LIMIT ?`
+      ).bind(kind, limit)
+    : c.env.DB.prepare(`SELECT * FROM studio_jobs ORDER BY created_at DESC LIMIT ?`).bind(limit)
+  const { results } = await q.all()
+  return c.json({
+    jobs: (results || []).map((r: any) => ({ ...r, meta: safeJSON(r.meta) })),
+  })
+})
+
+app.delete('/api/studio/jobs/:id', async (c) => {
+  await c.env.DB.prepare('DELETE FROM studio_jobs WHERE id = ?').bind(c.req.param('id')).run()
+  return c.json({ ok: true })
+})
+
+// ---- TÍNH NĂNG 1+2: SRT utilities & dịch phụ đề
+app.post('/api/studio/srt/parse', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const cues = parseSRT(String(body.srt || ''))
+  if (!cues.length) return c.json(bad('File SRT không hợp lệ — kiểm tra định dạng/UTF-8'), 400)
+  return c.json({ cues, count: cues.length, duration: cues[cues.length - 1].end })
+})
+
+app.post('/api/studio/srt/compose', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const segs = Array.isArray(body.segments) ? body.segments : []
+  if (!segs.length) return c.json(bad('Không có segment nào'), 400)
+  return c.json({ srt: composeSRT(segs), count: segs.length })
+})
+
+app.post('/api/studio/srt/translate', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const target = String(body.target_lang || 'vi')
+  const model = body.model ? String(body.model) : undefined
+  try {
+    if (Array.isArray(body.segments) && body.segments.length) {
+      // đường dùng cho Video Dub: dịch từng segment, giữ timing
+      const segs = body.segments.slice(0, 400)
+      const res = await translateTexts(
+        c.env,
+        segs.map((s: any) => String(s.text || '').replace(/\n/g, ' ')),
+        target,
+        model
+      )
+      const out = segs.map((s: any, i: number) => ({
+        start: Number(s.start) || 0,
+        end: Number(s.end) || 0,
+        text: res.texts[i],
+      }))
+      return c.json({
+        segments: out,
+        srt: composeSRT(out),
+        cue_count: out.length,
+        translated_lines: res.translated_lines,
+        batches: res.batches,
+        llm: res.llm,
+        target_lang: target,
+      })
+    }
+    const srt = String(body.srt || '')
+    if (!srt.trim()) return c.json(bad('Chưa có nội dung SRT'), 400)
+    const res = await translateSRT(c.env, srt, target, model)
+    return c.json(res)
+  } catch (e: any) {
+    return c.json(bad(`Dịch thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
+  }
+})
+
+app.get('/api/studio/langs', (c) =>
+  c.json({
+    langs: Object.entries(TRANSLATE_LANGS).map(([code, label]) => ({ code, label })),
+    voices: VOICES,
+  })
+)
+
+// ---- TÍNH NĂNG 5: RAG
+app.post('/api/rag/docs', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const text = String(body.text || '')
+  const name = String(body.name || 'tai-lieu.txt').slice(0, 160)
+  if (text.trim().length < 20) return c.json(bad('Nội dung tài liệu quá ngắn (tối thiểu 20 ký tự)'), 400)
+  if (text.length > 900_000) return c.json(bad('Tài liệu quá lớn (tối đa ~900.000 ký tự)'), 400)
+  try {
+    const doc = await ingestDocument(c.env, name, text, String(body.source || 'upload'))
+    return c.json({ doc })
+  } catch (e: any) {
+    return c.json(bad(`Nạp tài liệu thất bại: ${String(e?.message || e).slice(0, 200)}`), 400)
+  }
+})
+
+app.get('/api/rag/docs', async (c) => c.json({ docs: await listDocuments(c.env) }))
+
+app.delete('/api/rag/docs/:id', async (c) => {
+  await deleteDocument(c.env, c.req.param('id'))
+  return c.json({ ok: true })
+})
+
+app.post('/api/rag/ask', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const question = String(body.question || '').trim()
+  if (question.length < 3) return c.json(bad('Câu hỏi quá ngắn'), 400)
+  try {
+    const res = await askDocs(
+      c.env,
+      question,
+      Array.isArray(body.doc_ids) && body.doc_ids.length ? body.doc_ids.map(String) : null,
+      Math.min(Number(body.top_k) || 5, 12),
+      body.model ? String(body.model) : undefined
+    )
+    return c.json(res)
+  } catch (e: any) {
+    return c.json(bad(`Hỏi đáp thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
+  }
+})
+
+app.post('/api/rag/video-script', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  try {
+    const res = await generateVideoScript(c.env, {
+      docIds: Array.isArray(body.doc_ids) && body.doc_ids.length ? body.doc_ids.map(String) : null,
+      topic: String(body.topic || ''),
+      style: String(body.style || 'storytelling'),
+      durationSec: Number(body.duration_sec) || 60,
+      model: body.model ? String(body.model) : undefined,
+    })
+    return c.json(res)
+  } catch (e: any) {
+    return c.json(bad(`Tạo kịch bản thất bại: ${String(e?.message || e).slice(0, 200)}`), 400)
+  }
+})
+
+// ------------------------------------------------------------------ frontend
+
+app.get('/', (c) => c.html(renderPage()))
+app.get('/app', (c) => c.html(renderPage()))
+app.get('/studio', (c) => c.html(renderStudio()))
+
+app.notFound((c) => {
+  if (c.req.path.startsWith('/api/')) return c.json(bad('Endpoint không tồn tại', 404), 404)
+  return c.html(renderPage())
+})
+
+app.onError((err, c) => {
+  console.error('unhandled', err)
+  return c.json(bad(`Lỗi hệ thống: ${String(err?.message || err).slice(0, 200)}`, 500), 500)
+})
+
+export default app
