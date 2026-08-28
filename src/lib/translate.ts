@@ -2,9 +2,9 @@
  * Dịch phụ đề theo lô — port của backend/ai_engine.py :: translate_texts()
  * Giữ nguyên định dạng `<number>||<translation>` và lô 25 dòng.
  */
-import { ask, hasLLM } from './llm'
-import type { Bindings } from '../types'
-import { parseSRT, composeSRT } from './srt'
+import { ask, hasLLM } from './llm.js'
+import type { Bindings } from '../types.js'
+import { parseSRT, composeSRT } from './srt.js'
 
 const BATCH_SIZE = 25
 const LINE_RE = /^\s*(\d+)\s*\|\|\s*(.*)$/

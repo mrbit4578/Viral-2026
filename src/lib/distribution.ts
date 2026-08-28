@@ -2,8 +2,8 @@
  * Distribution engine — sinh gói đăng bài riêng cho từng nền tảng MXH
  * và mô hình hoá thu nhập thụ động (không cam kết kết quả).
  */
-import { askJSON, DEFAULT_TEXT_MODEL } from './llm'
-import type { Bindings, Blueprint, Platform } from '../types'
+import { askJSON, DEFAULT_TEXT_MODEL } from './llm.js'
+import type { Bindings, Blueprint, Platform } from '../types.js'
 
 export const PLATFORM_SPECS: Record<
   Platform,

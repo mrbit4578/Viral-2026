@@ -3,7 +3,7 @@
  * Thay cho filesystem/R2 của bản cũ để chạy được trên Vercel Functions.
  */
 import { del, put } from '@vercel/blob'
-import type { Bindings } from '../types'
+import type { Bindings } from '../types.js'
 
 // ---------------------------------------------------------------- helpers
 

@@ -1,4 +1,4 @@
-import type { AppDatabase } from './lib/db'
+import type { AppDatabase } from './lib/db.js'
 
 export type Bindings = {
   DB: AppDatabase

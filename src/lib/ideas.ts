@@ -2,8 +2,8 @@
  * Idea Lab — sinh ý tưởng mới và cải tiến ý tưởng thô.
  * Bước 1 & 2 của dây chuyền: Ý tưởng -> Cải tiến ý tưởng.
  */
-import { askJSON, DEFAULT_TEXT_MODEL } from './llm'
-import type { Bindings } from '../types'
+import { askJSON, DEFAULT_TEXT_MODEL } from './llm.js'
+import type { Bindings } from '../types.js'
 
 export type IdeaSeed = {
   topic: string

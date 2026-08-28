@@ -1,4 +1,4 @@
-import app, { createBindings } from '../src/index'
+import app, { createBindings } from '../src/index.js'
 
 const runtimeEnv =
   ((globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env || {})
@@ -8,7 +8,7 @@ function restorePagePath(request: Request): Request {
   const pagePath = url.searchParams.get('__hono_path')
   if (!pagePath) return request
 
-  // The two page rewrites enter this Function as /api. Restore their original
+  // The two page rewrites enter this Function as /api/page. Restore their original
   // pathname so the same Hono application can render / and /studio.
   url.pathname = pagePath
   url.searchParams.delete('__hono_path')

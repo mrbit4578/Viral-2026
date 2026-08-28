@@ -3,9 +3,9 @@
  * TF-IDF cosine retrieval thuần TypeScript trên Neon Postgres (thay MongoDB),
  * LLM trả lời có citation + sinh kịch bản video.
  */
-import { ask, hasLLM } from './llm'
-import type { Bindings } from '../types'
-import { uid } from './media'
+import { ask, hasLLM } from './llm.js'
+import type { Bindings } from '../types.js'
+import { uid } from './media.js'
 
 export const CHUNK_SIZE = 800
 export const CHUNK_OVERLAP = 100

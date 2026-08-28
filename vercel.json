@@ -9,11 +9,11 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/api?__hono_path=/"
+      "destination": "/api/page?__hono_path=/"
     },
     {
       "source": "/studio",
-      "destination": "/api?__hono_path=/studio"
+      "destination": "/api/page?__hono_path=/studio"
     }
   ]
 }

@@ -4,11 +4,11 @@
  */
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import type { Bindings, Blueprint, IdeaBrief, Platform } from './types'
-import { PLATFORMS } from './types'
-import { DEFAULT_TEXT_MODEL, TEXT_MODELS, hasLLM } from './lib/llm'
-import { generateBlueprint, fallbackBlueprint, shotsToSRT } from './lib/forge'
-import { generateIdeas, refineIdea } from './lib/ideas'
+import type { Bindings, Blueprint, IdeaBrief, Platform } from './types.js'
+import { PLATFORMS } from './types.js'
+import { DEFAULT_TEXT_MODEL, TEXT_MODELS, hasLLM } from './lib/llm.js'
+import { generateBlueprint, fallbackBlueprint, shotsToSRT } from './lib/forge.js'
+import { generateIdeas, refineIdea } from './lib/ideas.js'
 import {
   IMAGE_MODELS,
   VOICES,
@@ -18,21 +18,21 @@ import {
   generateSpeech,
   putAsset,
   uid,
-} from './lib/media'
-import { createDatabase } from './lib/db'
+} from './lib/media.js'
+import { createDatabase } from './lib/db.js'
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
-import { PLATFORM_SPECS, buildDistributionPacks, buildRevenueModel } from './lib/distribution'
-import { parseSRT, composeSRT } from './lib/srt'
-import { TRANSLATE_LANGS, translateTexts, translateSRT } from './lib/translate'
+import { PLATFORM_SPECS, buildDistributionPacks, buildRevenueModel } from './lib/distribution.js'
+import { parseSRT, composeSRT } from './lib/srt.js'
+import { TRANSLATE_LANGS, translateTexts, translateSRT } from './lib/translate.js'
 import {
   askDocs,
   deleteDocument,
   generateVideoScript,
   ingestDocument,
   listDocuments,
-} from './lib/rag'
-import { renderPage } from './page'
-import { renderStudio } from './studio-page'
+} from './lib/rag.js'
+import { renderPage } from './page.js'
+import { renderStudio } from './studio-page.js'
 
 const app = new Hono<{ Bindings: Bindings }>()
 

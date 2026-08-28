@@ -3,8 +3,8 @@
  * Port từ backend/forge_engine.py, giữ nguyên fallback tất định để app vẫn
  * hoạt động khi không có API key.
  */
-import { askJSON, DEFAULT_TEXT_MODEL } from './llm'
-import type { Bindings, Blueprint, IdeaBrief, Shot } from '../types'
+import { askJSON, DEFAULT_TEXT_MODEL } from './llm.js'
+import type { Bindings, Blueprint, IdeaBrief, Shot } from '../types.js'
 
 function cleanList(value: any, fallback: string[], limit: number): string[] {
   if (!Array.isArray(value)) return fallback

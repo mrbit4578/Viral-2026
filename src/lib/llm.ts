@@ -2,7 +2,7 @@
  * LLM helper — cổng gọi model text.
  * Port từ backend/ai_engine.py của faceless-forge (Emergent key -> OpenAI proxy).
  */
-import type { Bindings } from '../types'
+import type { Bindings } from '../types.js'
 
 export const TEXT_MODELS: Record<string, string> = {
   'gpt-5-mini': 'gpt-5-mini',
