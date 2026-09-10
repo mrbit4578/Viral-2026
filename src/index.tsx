@@ -17,6 +17,7 @@ import {
   generateImageBytes,
   generateSpeech,
   putAsset,
+  putAssetSmart,
   uid,
 } from './lib/media.js'
 import { createDatabase } from './lib/db.js'
@@ -31,6 +32,15 @@ import {
   ingestDocument,
   listDocuments,
 } from './lib/rag.js'
+import {
+  GEMINI_IMAGE_MODELS,
+  VEO_MODELS,
+  downloadVeoVideo,
+  generateGeminiImage,
+  getVeoOperationStatus,
+  hasGemini,
+  startVeoOperation,
+} from './lib/gemini.js'
 import { renderPage } from './page.js'
 import { renderStudio } from './studio-page.js'
 
@@ -77,6 +87,9 @@ app.get('/api/config', (c) =>
     voices: VOICES,
     platforms: PLATFORMS.map((p) => ({ key: p, ...PLATFORM_SPECS[p] })),
     llm: hasLLM(c.env),
+    gemini: hasGemini(c.env),
+    gemini_image_models: GEMINI_IMAGE_MODELS,
+    veo_models: VEO_MODELS,
   })
 )
 
@@ -163,6 +176,20 @@ app.post('/api/forge/blueprint', async (c) => {
   const blueprint = await generateBlueprint(c.env, brief)
   const id = uid('bp_')
 
+  // Chặn idea_id "ma": nếu idea chưa được lưu thì gắn NULL, tránh lỗi FK
+  // khiến blueprint mất bản ghi DB dù API vẫn trả về thành công.
+  let ideaId: string | null = null
+  if (body.idea_id) {
+    try {
+      const exists = await c.env.DB.prepare(`SELECT 1 FROM ideas WHERE id = ?`)
+        .bind(String(body.idea_id))
+        .first()
+      ideaId = exists ? String(body.idea_id) : null
+    } catch {
+      ideaId = null
+    }
+  }
+
   try {
     await c.env.DB.prepare(
       `INSERT INTO blueprints (id, idea_id, title, concept, viral_score, duration_sec, language, platform, data_json, status, created_at, updated_at)
@@ -170,7 +197,7 @@ app.post('/api/forge/blueprint', async (c) => {
     )
       .bind(
         id,
-        body.idea_id ? String(body.idea_id) : null,
+        ideaId,
         blueprint.titles?.[0] || blueprint.concept.slice(0, 120),
         blueprint.concept,
         blueprint.viral_score,
@@ -254,16 +281,58 @@ app.post('/api/media/image', async (c) => {
   const prompt = String(body.prompt || '').trim()
   if (!prompt) return c.json(bad('Prompt trống'), 400)
 
+  // provider: 'auto' (mặc định — ưu tiên Gemini nếu có key),
+  //           'gemini' (bắt buộc Gemini, lỗi báo lỗi thật),
+  //           'pollinations' (bỏ qua Gemini).
+  const provider = String(body.provider || 'auto').toLowerCase()
+
   try {
-    const { bytes, contentType } = await generateImageBytes(prompt, {
-      model: String(body.model || 'flux'),
-      width: Number(body.width) || 768,
-      height: Number(body.height) || 1344,
-      seed: body.seed !== undefined ? Number(body.seed) : undefined,
-    })
-    const ext = contentType.includes('png') ? 'png' : 'jpg'
+    let bytes: ArrayBuffer
+    let contentType: string
+    let fallback = false
+    let usedProvider: string
+
+    if (provider !== 'pollinations' && hasGemini(c.env)) {
+      try {
+        const gem = await generateGeminiImage(c.env, prompt, {
+          model: String(body.gemini_model || ''),
+          aspectRatio: '9:16',
+        })
+        bytes = gem.bytes
+        contentType = gem.contentType
+        usedProvider = 'gemini'
+      } catch (e: any) {
+        if (provider === 'gemini') {
+          return c.json(bad(`Gemini thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+        }
+        console.error('gemini image failed, fallback to pollinations:', String(e?.message || e).slice(0, 200))
+        const pol = await generateImageBytes(prompt, {
+          model: String(body.model || 'flux'),
+          width: Number(body.width) || 768,
+          height: Number(body.height) || 1344,
+          seed: body.seed !== undefined ? Number(body.seed) : undefined,
+        })
+        bytes = pol.bytes
+        contentType = pol.contentType
+        fallback = Boolean(pol.fallback)
+        usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
+      }
+    } else {
+      const pol = await generateImageBytes(prompt, {
+        model: String(body.model || 'flux'),
+        width: Number(body.width) || 768,
+        height: Number(body.height) || 1344,
+        seed: body.seed !== undefined ? Number(body.seed) : undefined,
+      })
+      bytes = pol.bytes
+      contentType = pol.contentType
+      fallback = Boolean(pol.fallback)
+      usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
+    }
+
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('svg') ? 'svg' : 'jpg'
     const key = `images/${uid('img_')}.${ext}`
-    const saved = await putAsset(c.env, key, bytes, contentType)
+    const saved = await putAssetSmart(c.env, key, bytes, contentType)
 
     const assetId = uid('as_')
     if (body.blueprint_id) {
@@ -288,9 +357,113 @@ app.post('/api/media/image', async (c) => {
         console.error('save image asset failed', e)
       }
     }
-    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType })
+    return c.json({
+      id: assetId,
+      url: saved.url,
+      key,
+      size: saved.size,
+      content_type: contentType,
+      fallback: Boolean(fallback),
+      provider: usedProvider,
+    })
   } catch (e: any) {
     return c.json(bad(`Tạo ảnh thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
+  }
+})
+
+// Import ảnh có sẵn (do AI bên ngoài hoặc ngườidùng tự tạo) vào gallery của một shot.
+// Nhận data URL (png/jpg/webp) — client tự chuyển base64, server không cần egress.
+app.post('/api/media/import-image', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const m = /^data:(image\/(?:png|jpe?g|webp));base64,([A-Za-z0-9+/=\r\n]+)$/.exec(String(body.data || ''))
+  if (!m) return c.json(bad('Cần data URL ảnh hợp lệ (png/jpg/webp)'), 400)
+  const contentType = m[1] === 'image/jpg' ? 'image/jpeg' : m[1]
+  let bytes: Uint8Array
+  try {
+    const bin = atob(m[2].replace(/\s+/g, ''))
+    bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  } catch {
+    return c.json(bad('Data URL không hợp lệ (base64 lỗi)'), 400)
+  }
+  if (bytes.byteLength < 1024) return c.json(bad('Ảnh quá nhỏ hoặc không hợp lệ'), 400)
+  if (bytes.byteLength > 3 * 1024 * 1024) return c.json(bad('Ảnh vượt quá 3MB'), 413)
+
+  try {
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg'
+    const key = `images/${uid('img_')}.${ext}`
+    const saved = await putAssetSmart(c.env, key, bytes, contentType)
+    const assetId = uid('as_')
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(
+            assetId,
+            String(body.blueprint_id),
+            'image',
+            Number(body.shot_index) || 0,
+            saved.key,
+            contentType,
+            saved.size,
+            String(body.prompt || 'imported').slice(0, 800),
+            now()
+          )
+          .run()
+      } catch (e) {
+        console.error('save imported asset failed', e)
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType, provider: 'import' })
+  } catch (e: any) {
+    return c.json(bad(`Import ảnh thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
+  }
+})
+
+// Import voice-over có sẵn (ghi âm tay hoặc TTS chạy nơi khác) — đưa thẳng vào bước dựng video.
+// Nhận data URL audio (mp3/wav/ogg/m4a) — hoạt động cả khi server không có egress.
+app.post('/api/media/import-audio', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const m = /^data:(audio\/(?:mpeg|mp3|wav|x-wav|wave|ogg|m4a|mp4|aac));base64,([A-Za-z0-9+/=\r\n]+)$/.exec(String(body.data || ''))
+  if (!m) return c.json(bad('Cần data URL audio hợp lệ (mp3/wav/ogg/m4a)'), 400)
+  const contentType = m[1]
+    .replace('audio/mp3', 'audio/mpeg')
+    .replace('audio/x-wav', 'audio/wav')
+    .replace('audio/wave', 'audio/wav')
+    .replace('audio/mp4', 'audio/m4a')
+  let bytes: Uint8Array
+  try {
+    const bin = atob(m[2].replace(/\s+/g, ''))
+    bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  } catch {
+    return c.json(bad('Data URL không hợp lệ (base64 lỗi)'), 400)
+  }
+  if (bytes.byteLength < 512) return c.json(bad('Audio quá nhỏ hoặc không hợp lệ'), 400)
+  if (bytes.byteLength > 3 * 1024 * 1024) return c.json(bad('Audio vượt quá 3MB'), 413)
+
+  try {
+    const ext = contentType.includes('wav') ? 'wav' : contentType.includes('ogg') ? 'ogg' : contentType.includes('aac') || contentType.includes('m4a') ? 'm4a' : 'mp3'
+    const key = `audio/${uid('aud_')}.${ext}`
+    const saved = await putAssetSmart(c.env, key, bytes, contentType)
+    const assetId = uid('as_')
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(assetId, String(body.blueprint_id), 'audio', 0, saved.key, contentType, saved.size, 'imported voice-over', now())
+          .run()
+      } catch (e) {
+        console.error('save imported audio failed', e)
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType, provider: 'import' })
+  } catch (e: any) {
+    return c.json(bad(`Import audio thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
   }
 })
 
@@ -303,9 +476,10 @@ app.post('/api/media/speech', async (c) => {
   if (text.length > 12000) return c.json(bad('Kịch bản quá dài (tối đa 12.000 ký tự)'), 400)
 
   try {
-    const { bytes, chunks, chars } = await generateSpeech(text, String(body.voice || 'vi'))
-    const key = `audio/${uid('tts_')}.mp3`
-    const saved = await putAsset(c.env, key, bytes, 'audio/mpeg')
+    const { bytes, chunks, chars, fallback, missing } = await generateSpeech(text, String(body.voice || 'vi'))
+    const audioType = fallback ? 'audio/wav' : 'audio/mpeg'
+    const key = `audio/${uid('tts_')}.${fallback ? 'wav' : 'mp3'}`
+    const saved = await putAssetSmart(c.env, key, bytes, audioType)
 
     const assetId = uid('as_')
     if (body.blueprint_id) {
@@ -320,10 +494,10 @@ app.post('/api/media/speech', async (c) => {
             'audio',
             Number(body.shot_index) || 0,
             saved.key,
-            'audio/mpeg',
+            audioType,
             saved.size,
             text.slice(0, 500),
-            JSON.stringify({ voice: body.voice || 'vi', chunks, chars }),
+            JSON.stringify({ voice: body.voice || 'vi', chunks, chars, fallback: Boolean(fallback), missing: missing || 0 }),
             now()
           )
           .run()
@@ -331,7 +505,7 @@ app.post('/api/media/speech', async (c) => {
         console.error('save audio asset failed', e)
       }
     }
-    return c.json({ id: assetId, url: saved.url, key, size: saved.size, chunks, chars })
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, chunks, chars, fallback: Boolean(fallback), missing: missing || 0 })
   } catch (e: any) {
     return c.json(bad(`Tạo giọng đọc thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
   }
@@ -365,6 +539,86 @@ app.post('/api/media/video/:blueprintId', async (c) => {
     console.error('save video asset failed', e)
   }
   return c.json({ id: assetId, url, key: url, size })
+})
+
+// ------------------------------------------------------------------ BƯỚC 6b: Video AI bằng Veo (phương án 2)
+
+app.post('/api/media/ai-video', async (c) => {
+  if (!hasGemini(c.env)) return c.json(bad('Chưa cấu hình GEMINI_API_KEY (AI Studio)'), 503)
+  const body = await c.req.json().catch(() => ({}))
+  let prompt = String(body.prompt || '').trim()
+  if (prompt.length < 8) return c.json(bad('Prompt video quá ngắn (tối thiểu 8 ký tự)'), 400)
+
+  // Voice đọc theo Veo: Veo 3 tự tạo audio gốc — lồng thoại đọc (câu trong ngoặc kép)
+  // thẳng vào prompt. Clip Veo ~8s nên chỉ đưa đoạn mở đầu kịch bản để vừa nhịp đọc.
+  const voRaw = String(body.voiceover || '')
+    .replace(/\s+/g, ' ')
+    .replace(/["“”]/g, "'")
+    .trim()
+  let spoken = false
+  if (voRaw) {
+    let vo = voRaw.slice(0, 260)
+    const cut = vo.lastIndexOf(' ')
+    if (voRaw.length > 260 && cut > 120) vo = vo.slice(0, cut)
+    if (vo.length >= 8) {
+      prompt +=
+        ` Audio: a warm, natural Vietnamese narrator says exactly: "${vo}".` +
+        ' Clear storytelling pace; subtle ambient sound matching the visuals;' +
+        ' the voice is louder than any music; no subtitles or on-screen captions.'
+      spoken = true
+    }
+  }
+  if (prompt.length > 1400) prompt = prompt.slice(0, 1400)
+
+  try {
+    const operation = await startVeoOperation(c.env, prompt, {
+      model: String(body.model || ''),
+      aspectRatio: String(body.aspect_ratio || '9:16'),
+    })
+    return c.json({ operation, model: VEO_MODELS.includes(body.model) ? body.model : VEO_MODELS[0], spoken })
+  } catch (e: any) {
+    return c.json(bad(`Không khởi động được Veo: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+  }
+})
+
+app.get('/api/media/ai-video/status', async (c) => {
+  if (!hasGemini(c.env)) return c.json(bad('Chưa cấu hình GEMINI_API_KEY (AI Studio)'), 503)
+  const name = String(c.req.query('name') || '')
+  const blueprintId = String(c.req.query('blueprint_id') || '')
+  try {
+    const status = await getVeoOperationStatus(c.env, name)
+    if (!status.done) return c.json({ done: false })
+    if ('error' in status && status.error) return c.json({ done: true, error: status.error })
+
+    const uri = (status as { videoUri: string }).videoUri
+    // Có Blob → tải về và lưu lâu dài; chưa có Blob → client xem/tải trực tiếp
+    // từ URI Google (hết hạn ~vài ngày).
+    if (c.env.BLOB_READ_WRITE_TOKEN) {
+      const bytes = await downloadVeoVideo(c.env, uri)
+      const key = `videos/veo_${uid('v_')}.mp4`
+      const saved = await putAsset(c.env, key, bytes, 'video/mp4')
+      const assetId = uid('as_')
+      if (blueprintId) {
+        try {
+          await c.env.DB.prepare(
+            `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?)`
+          )
+            .bind(assetId, blueprintId, 'video', 0, saved.key, 'video/mp4', saved.size, `veo:${name}`.slice(0, 500), now())
+            .run()
+          await c.env.DB.prepare(`UPDATE blueprints SET status = 'rendered', updated_at = ? WHERE id = ?`)
+            .bind(now(), blueprintId)
+            .run()
+        } catch (e) {
+          console.error('save veo asset failed', e)
+        }
+      }
+      return c.json({ done: true, id: assetId, url: saved.url, key, size: saved.size, provider: 'veo' })
+    }
+    return c.json({ done: true, url: uri, provider: 'veo', note: 'URI Google tạm thởi — hãy tải về sớm', expires_source: true })
+  } catch (e: any) {
+    return c.json(bad(`Kiểm tra trạng thái Veo thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+  }
 })
 
 // ------------------------------------------------------------------ Vercel Blob upload & legacy media endpoint
@@ -537,28 +791,30 @@ app.post('/api/metrics', async (c) => {
 })
 
 app.get('/api/metrics/summary', async (c) => {
+  // Neon trả SUM/COUNT dưới dạng string (int8/numeric) — ép ::float8/::int
+  // để JSON ra số thật và client không phải tự coerce.
   const totals = await c.env.DB.prepare(
-    `SELECT COUNT(*) AS entries,
-            COALESCE(SUM(views),0) AS views,
-            COALESCE(SUM(likes),0) AS likes,
-            COALESCE(SUM(comments),0) AS comments,
-            COALESCE(SUM(shares),0) AS shares,
-            COALESCE(SUM(followers_gained),0) AS followers,
-            COALESCE(SUM(revenue_usd),0) AS revenue
+    `SELECT COUNT(*)::int AS entries,
+            COALESCE(SUM(views),0)::float8 AS views,
+            COALESCE(SUM(likes),0)::float8 AS likes,
+            COALESCE(SUM(comments),0)::float8 AS comments,
+            COALESCE(SUM(shares),0)::float8 AS shares,
+            COALESCE(SUM(followers_gained),0)::float8 AS followers,
+            COALESCE(SUM(revenue_usd),0)::float8 AS revenue
      FROM metrics`
   ).first<any>()
 
   const { results: byPlatform } = await c.env.DB.prepare(
     `SELECT platform,
-            COALESCE(SUM(views),0) AS views,
-            COALESCE(SUM(revenue_usd),0) AS revenue,
-            COALESCE(SUM(followers_gained),0) AS followers,
-            COUNT(*) AS posts
+            COALESCE(SUM(views),0)::float8 AS views,
+            COALESCE(SUM(revenue_usd),0)::float8 AS revenue,
+            COALESCE(SUM(followers_gained),0)::float8 AS followers,
+            COUNT(*)::int AS posts
      FROM metrics GROUP BY platform ORDER BY revenue DESC`
   ).all()
 
   const { results: bySource } = await c.env.DB.prepare(
-    `SELECT revenue_source, COALESCE(SUM(revenue_usd),0) AS revenue
+    `SELECT revenue_source, COALESCE(SUM(revenue_usd),0)::float8 AS revenue
      FROM metrics GROUP BY revenue_source ORDER BY revenue DESC`
   ).all()
 
@@ -568,9 +824,9 @@ app.get('/api/metrics/summary', async (c) => {
   ).all()
 
   const counts = await c.env.DB.prepare(
-    `SELECT (SELECT COUNT(*) FROM blueprints) AS blueprints,
-            (SELECT COUNT(*) FROM assets WHERE kind='video') AS videos,
-            (SELECT COUNT(*) FROM distributions) AS packs`
+    `SELECT (SELECT COUNT(*) FROM blueprints)::int AS blueprints,
+            (SELECT COUNT(*) FROM assets WHERE kind='video')::int AS videos,
+            (SELECT COUNT(*) FROM distributions)::int AS packs`
   ).first<any>()
 
   const views = Number(totals?.views || 0)
@@ -804,6 +1060,7 @@ export function createBindings(environment: Record<string, string | undefined>):
     BLOB_READ_WRITE_TOKEN: environment.BLOB_READ_WRITE_TOKEN,
     OPENAI_API_KEY: environment.OPENAI_API_KEY,
     OPENAI_BASE_URL: environment.OPENAI_BASE_URL,
+    GEMINI_API_KEY: environment.GEMINI_API_KEY || environment.GOOGLE_API_KEY,
   }
 }
 
