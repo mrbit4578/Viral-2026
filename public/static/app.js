@@ -309,6 +309,10 @@ function renderBlueprint() {
           <option value="gemini">Gemini (Google) — bắt buộc</option>
           <option value="pollinations">Pollinations (miễn phí)</option>
         </select>` : ''}
+        <label class="button ghost" style="cursor:pointer" title="Tải ảnh có sẵn lên — gán theo thứ tự shot (dùng được cả khi dịch vụ AI ngoại tuyến)">
+          <i class="fas fa-cloud-arrow-up"></i> Tải ảnh lên
+          <input type="file" id="upload-images" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        </label>
       </div>
       <div class="job" id="image-job">
         <div class="job-line"><span id="image-msg">Đang chuẩn bị…</span><b id="image-pct">0%</b></div>
@@ -322,6 +326,10 @@ function renderBlueprint() {
       <div class="section-title">Bước 05 · Giọng đọc AI <small>GOOGLE NEURAL TTS</small></div>
       <div class="tool-row">
         <button class="button primary" type="button" data-gen-voice><i class="fas fa-microphone-lines"></i> Tạo voice-over</button>
+        <label class="button ghost" style="cursor:pointer" title="Tải voice-over của bạn lên (bỏ qua TTS — dùng được cả khi TTS ngoại tuyến)">
+          <i class="fas fa-cloud-arrow-up"></i> Tải voice có sẵn
+          <input type="file" id="upload-voice" accept="audio/*" hidden>
+        </label>
       </div>
       <div class="job" id="audio-job">
         <div class="job-line"><span id="audio-msg">Đang chuẩn bị…</span><b id="audio-pct">0%</b></div>
@@ -985,6 +993,70 @@ $('#blueprint').addEventListener('click', (event) => {
   if (target.hasAttribute('data-open-render')) return renderVideo();
   if (target.hasAttribute('data-gen-ai-video')) return genAiVideo(target);
   if (target.hasAttribute('data-build-packs')) return buildPacks(target);
+});
+
+/* ============================== Tải file có sẵn (ảnh / voice) ============================== */
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Đọc file thất bại'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadImages(fileList) {
+  const shots = state.blueprint?.shots || [];
+  if (!shots.length) return notify('Chưa có shot list — hãy tạo blueprint trước', true);
+  const files = Array.from(fileList || []).slice(0, shots.length);
+  if (!files.length) return;
+  progress('image', 8, `Đang tải lên ${files.length} ảnh…`);
+  let done = 0;
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const dataUrl = await fileToDataUrl(files[i]);
+      const res = await api('/api/media/import-image', {
+        method: 'POST',
+        body: JSON.stringify({ data: dataUrl, blueprint_id: state.blueprintId, shot_index: i, prompt: files[i].name || 'user upload' }),
+      });
+      state.images[i] = { url: res.url, key: res.key, fallback: false, provider: 'upload' };
+      done += 1;
+      progress('image', Math.round((done / files.length) * 100), `Đã tải lên ${done}/${files.length} ảnh`);
+      renderImageStrip();
+    }
+    notify(`Đã gắn ${done} ảnh tải lên vào ${done} shot đầu — Bước 06 dùng ngay được`);
+  } catch (err) {
+    notify(`Tải ảnh lên thất bại: ${err.message}`, true);
+    renderImageStrip();
+  }
+}
+
+async function uploadVoice(file) {
+  if (!file) return;
+  try {
+    progress('audio', 15, 'Đang tải voice lên…');
+    const dataUrl = await fileToDataUrl(file);
+    const res = await api('/api/media/import-audio', {
+      method: 'POST',
+      body: JSON.stringify({ data: dataUrl, blueprint_id: state.blueprintId }),
+    });
+    state.audio = { url: res.url, key: res.key };
+    progress('audio', 100, `Đã gắn voice tải lên · ${nf.format(res.size)} bytes`);
+    $('#audio-output').innerHTML = `
+      <audio controls src="${safe(res.url)}"></audio>
+      <a class="download" href="${safe(res.url)}" download="voice-over-upload"><i class="fas fa-download"></i> TẢI AUDIO</a>`;
+    notify('Voice-over của bạn đã sẵn sàng cho bước dựng video');
+  } catch (err) {
+    progress('audio', 0, 'Tải voice thất bại');
+    notify(`Tải voice thất bại: ${err.message}`, true);
+  }
+}
+
+document.addEventListener('change', (event) => {
+  const el = event.target;
+  if (!(el instanceof HTMLInputElement)) return;
+  if (el.id === 'upload-images') { uploadImages(el.files); el.value = ''; }
+  if (el.id === 'upload-voice') { uploadVoice(el.files?.[0]); el.value = ''; }
 });
 
 /* ============================== BƯỚC 8: thu nhập ============================== */

@@ -378,9 +378,14 @@ app.post('/api/media/import-image', async (c) => {
   const m = /^data:(image\/(?:png|jpe?g|webp));base64,([A-Za-z0-9+/=\r\n]+)$/.exec(String(body.data || ''))
   if (!m) return c.json(bad('Cần data URL ảnh hợp lệ (png/jpg/webp)'), 400)
   const contentType = m[1] === 'image/jpg' ? 'image/jpeg' : m[1]
-  const bin = atob(m[2].replace(/\s+/g, ''))
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  let bytes: Uint8Array
+  try {
+    const bin = atob(m[2].replace(/\s+/g, ''))
+    bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  } catch {
+    return c.json(bad('Data URL không hợp lệ (base64 lỗi)'), 400)
+  }
   if (bytes.byteLength < 1024) return c.json(bad('Ảnh quá nhỏ hoặc không hợp lệ'), 400)
   if (bytes.byteLength > 3 * 1024 * 1024) return c.json(bad('Ảnh vượt quá 3MB'), 413)
 
@@ -414,6 +419,51 @@ app.post('/api/media/import-image', async (c) => {
     return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType, provider: 'import' })
   } catch (e: any) {
     return c.json(bad(`Import ảnh thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
+  }
+})
+
+// Import voice-over có sẵn (ghi âm tay hoặc TTS chạy nơi khác) — đưa thẳng vào bước dựng video.
+// Nhận data URL audio (mp3/wav/ogg/m4a) — hoạt động cả khi server không có egress.
+app.post('/api/media/import-audio', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const m = /^data:(audio\/(?:mpeg|mp3|wav|x-wav|wave|ogg|m4a|mp4|aac));base64,([A-Za-z0-9+/=\r\n]+)$/.exec(String(body.data || ''))
+  if (!m) return c.json(bad('Cần data URL audio hợp lệ (mp3/wav/ogg/m4a)'), 400)
+  const contentType = m[1]
+    .replace('audio/mp3', 'audio/mpeg')
+    .replace('audio/x-wav', 'audio/wav')
+    .replace('audio/wave', 'audio/wav')
+    .replace('audio/mp4', 'audio/m4a')
+  let bytes: Uint8Array
+  try {
+    const bin = atob(m[2].replace(/\s+/g, ''))
+    bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  } catch {
+    return c.json(bad('Data URL không hợp lệ (base64 lỗi)'), 400)
+  }
+  if (bytes.byteLength < 512) return c.json(bad('Audio quá nhỏ hoặc không hợp lệ'), 400)
+  if (bytes.byteLength > 3 * 1024 * 1024) return c.json(bad('Audio vượt quá 3MB'), 413)
+
+  try {
+    const ext = contentType.includes('wav') ? 'wav' : contentType.includes('ogg') ? 'ogg' : contentType.includes('aac') || contentType.includes('m4a') ? 'm4a' : 'mp3'
+    const key = `audio/${uid('aud_')}.${ext}`
+    const saved = await putAssetSmart(c.env, key, bytes, contentType)
+    const assetId = uid('as_')
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(assetId, String(body.blueprint_id), 'audio', 0, saved.key, contentType, saved.size, 'imported voice-over', now())
+          .run()
+      } catch (e) {
+        console.error('save imported audio failed', e)
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType, provider: 'import' })
+  } catch (e: any) {
+    return c.json(bad(`Import audio thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
   }
 })
 
