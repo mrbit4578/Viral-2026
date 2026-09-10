@@ -91,7 +91,7 @@ OPENAI_BASE_URL=https://www.genspark.ai/api/llm_proxy/v1
 | Bước 04 · Ảnh | Thêm chọn nguồn: Tự động (Gemini → Pollinations), chỉ Gemini, chỉ Pollinations | Chỉ Pollinations (offline → SVG placeholder) |
 | Bước 06 · Video AI | Nút "Tạo video bằng Veo AI" (video thật 9:16 có audio, ~1–3 phút mỗi video, client poll operation). Tick sẵn **"Voice đọc theo Veo"** để Veo tự tạo tiếng Việt đọc đoạn mở đầu kịch bản trong video (bỏ qua được bước 05) | Ẩn — chỉ có render Canvas trong browser |
 
-Ngoài ra có route `POST /api/media/import-image` nhận **data URL ảnh có sẵn** (png/jpg/webp ≤ 3MB, kèm `blueprint_id` + `shot_index`) để đưa ảnh tạo ở nơi khác vào đúng gallery của shot.
+Ngoài ra có route `POST /api/media/import-image` (ảnh png/jpg/webp) và `POST /api/media/import-audio` (voice mp3/wav/ogg/m4a) nhận **data URL có sẵn** ≤ 3MB để đưa media tạo ở nơi khác vào đúng gallery/audio player — UI có sẵn hai nút "Tải ảnh lên" / "Tải voice có sẵn", dùng được cả khi dịch vụ AI ngoại tuyến.
 
 Lưu ý: Veo và ảnh chất lượng cao có thể cần **Billing** trên Google Cloud project của key; khi hết quota server trả lỗi rõ (429) và ảnh tự rơi về Pollinations khi đang ở chế độ "Tự động". Video Veo khi chưa có Blob sẽ trả về **URI Google tạm thởi** — hãy tải về sớm.
 
