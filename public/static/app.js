@@ -345,6 +345,10 @@ function renderBlueprint() {
         <label style="display:block;margin-bottom:10px">Prompt video (từ concept — có thể chỉnh)
           <textarea id="veo-prompt" rows="3" spellcheck="false">${safe(bp.concept)}. Cinematic vertical video, smooth camera movement, high detail.</textarea>
         </label>
+        <label style="display:flex;gap:8px;align-items:center;margin:-4px 0 12px;font-size:13px;color:#9fb0ad;cursor:pointer">
+          <input type="checkbox" id="veo-voice" checked style="accent-color:#66f5cd">
+          <span>🎙️ <b style="color:#e8f4f0">Voice đọc theo Veo</b> — Veo tự tạo audio tiếng Việt đọc đoạn mở đầu kịch bản (clip ~8s; không cần bước 05)</span>
+        </label>
         <div class="tool-row">
           <button class="button primary" type="button" data-gen-ai-video><i class="fas fa-clapperboard"></i> Tạo video bằng Veo AI</button>
           <select id="veo-model" title="Model Veo">
@@ -841,12 +845,15 @@ async function genAiVideo(button) {
   const prompt = ($('#veo-prompt')?.value || bp.concept || '').trim();
   if (prompt.length < 8) return notify('Prompt video quá ngắn (tối thiểu 8 ký tự)', true);
 
+  const wantVoice = $('#veo-voice') ? $('#veo-voice').checked : true;
+  const voiceover = wantVoice ? String(bp.script || '').trim() : '';
+
   const restore = busy(button, 'Đang gửi Veo…');
   try {
-    progress('aivideo', 4, 'Đang khởi động Veo…');
+    progress('aivideo', 4, wantVoice ? 'Đang khởi động Veo (kèm giọng đọc)…' : 'Đang khởi động Veo…');
     const start = await api('/api/media/ai-video', {
       method: 'POST',
-      body: JSON.stringify({ prompt, model: $('#veo-model')?.value || '', blueprint_id: state.blueprintId }),
+      body: JSON.stringify({ prompt, model: $('#veo-model')?.value || '', blueprint_id: state.blueprintId, voiceover }),
     });
     const name = start.operation;
     if (!name) throw new Error('Veo không trả về operation');

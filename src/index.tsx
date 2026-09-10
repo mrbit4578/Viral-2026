@@ -371,6 +371,52 @@ app.post('/api/media/image', async (c) => {
   }
 })
 
+// Import ảnh có sẵn (do AI bên ngoài hoặc ngườidùng tự tạo) vào gallery của một shot.
+// Nhận data URL (png/jpg/webp) — client tự chuyển base64, server không cần egress.
+app.post('/api/media/import-image', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const m = /^data:(image\/(?:png|jpe?g|webp));base64,([A-Za-z0-9+/=\r\n]+)$/.exec(String(body.data || ''))
+  if (!m) return c.json(bad('Cần data URL ảnh hợp lệ (png/jpg/webp)'), 400)
+  const contentType = m[1] === 'image/jpg' ? 'image/jpeg' : m[1]
+  const bin = atob(m[2].replace(/\s+/g, ''))
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  if (bytes.byteLength < 1024) return c.json(bad('Ảnh quá nhỏ hoặc không hợp lệ'), 400)
+  if (bytes.byteLength > 3 * 1024 * 1024) return c.json(bad('Ảnh vượt quá 3MB'), 413)
+
+  try {
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg'
+    const key = `images/${uid('img_')}.${ext}`
+    const saved = await putAssetSmart(c.env, key, bytes, contentType)
+    const assetId = uid('as_')
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(
+            assetId,
+            String(body.blueprint_id),
+            'image',
+            Number(body.shot_index) || 0,
+            saved.key,
+            contentType,
+            saved.size,
+            String(body.prompt || 'imported').slice(0, 800),
+            now()
+          )
+          .run()
+      } catch (e) {
+        console.error('save imported asset failed', e)
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType, provider: 'import' })
+  } catch (e: any) {
+    return c.json(bad(`Import ảnh thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
+  }
+})
+
 // ------------------------------------------------------------------ BƯỚC 5: Giọng đọc
 
 app.post('/api/media/speech', async (c) => {
@@ -450,15 +496,36 @@ app.post('/api/media/video/:blueprintId', async (c) => {
 app.post('/api/media/ai-video', async (c) => {
   if (!hasGemini(c.env)) return c.json(bad('Chưa cấu hình GEMINI_API_KEY (AI Studio)'), 503)
   const body = await c.req.json().catch(() => ({}))
-  const prompt = String(body.prompt || '').trim()
+  let prompt = String(body.prompt || '').trim()
   if (prompt.length < 8) return c.json(bad('Prompt video quá ngắn (tối thiểu 8 ký tự)'), 400)
+
+  // Voice đọc theo Veo: Veo 3 tự tạo audio gốc — lồng thoại đọc (câu trong ngoặc kép)
+  // thẳng vào prompt. Clip Veo ~8s nên chỉ đưa đoạn mở đầu kịch bản để vừa nhịp đọc.
+  const voRaw = String(body.voiceover || '')
+    .replace(/\s+/g, ' ')
+    .replace(/["“”]/g, "'")
+    .trim()
+  let spoken = false
+  if (voRaw) {
+    let vo = voRaw.slice(0, 260)
+    const cut = vo.lastIndexOf(' ')
+    if (voRaw.length > 260 && cut > 120) vo = vo.slice(0, cut)
+    if (vo.length >= 8) {
+      prompt +=
+        ` Audio: a warm, natural Vietnamese narrator says exactly: "${vo}".` +
+        ' Clear storytelling pace; subtle ambient sound matching the visuals;' +
+        ' the voice is louder than any music; no subtitles or on-screen captions.'
+      spoken = true
+    }
+  }
+  if (prompt.length > 1400) prompt = prompt.slice(0, 1400)
 
   try {
     const operation = await startVeoOperation(c.env, prompt, {
       model: String(body.model || ''),
       aspectRatio: String(body.aspect_ratio || '9:16'),
     })
-    return c.json({ operation, model: VEO_MODELS.includes(body.model) ? body.model : VEO_MODELS[0] })
+    return c.json({ operation, model: VEO_MODELS.includes(body.model) ? body.model : VEO_MODELS[0], spoken })
   } catch (e: any) {
     return c.json(bad(`Không khởi động được Veo: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
   }
