@@ -32,6 +32,15 @@ import {
   ingestDocument,
   listDocuments,
 } from './lib/rag.js'
+import {
+  GEMINI_IMAGE_MODELS,
+  VEO_MODELS,
+  downloadVeoVideo,
+  generateGeminiImage,
+  getVeoOperationStatus,
+  hasGemini,
+  startVeoOperation,
+} from './lib/gemini.js'
 import { renderPage } from './page.js'
 import { renderStudio } from './studio-page.js'
 
@@ -78,6 +87,9 @@ app.get('/api/config', (c) =>
     voices: VOICES,
     platforms: PLATFORMS.map((p) => ({ key: p, ...PLATFORM_SPECS[p] })),
     llm: hasLLM(c.env),
+    gemini: hasGemini(c.env),
+    gemini_image_models: GEMINI_IMAGE_MODELS,
+    veo_models: VEO_MODELS,
   })
 )
 
@@ -269,13 +281,55 @@ app.post('/api/media/image', async (c) => {
   const prompt = String(body.prompt || '').trim()
   if (!prompt) return c.json(bad('Prompt trống'), 400)
 
+  // provider: 'auto' (mặc định — ưu tiên Gemini nếu có key),
+  //           'gemini' (bắt buộc Gemini, lỗi báo lỗi thật),
+  //           'pollinations' (bỏ qua Gemini).
+  const provider = String(body.provider || 'auto').toLowerCase()
+
   try {
-    const { bytes, contentType, fallback } = await generateImageBytes(prompt, {
-      model: String(body.model || 'flux'),
-      width: Number(body.width) || 768,
-      height: Number(body.height) || 1344,
-      seed: body.seed !== undefined ? Number(body.seed) : undefined,
-    })
+    let bytes: ArrayBuffer
+    let contentType: string
+    let fallback = false
+    let usedProvider: string
+
+    if (provider !== 'pollinations' && hasGemini(c.env)) {
+      try {
+        const gem = await generateGeminiImage(c.env, prompt, {
+          model: String(body.gemini_model || ''),
+          aspectRatio: '9:16',
+        })
+        bytes = gem.bytes
+        contentType = gem.contentType
+        usedProvider = 'gemini'
+      } catch (e: any) {
+        if (provider === 'gemini') {
+          return c.json(bad(`Gemini thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+        }
+        console.error('gemini image failed, fallback to pollinations:', String(e?.message || e).slice(0, 200))
+        const pol = await generateImageBytes(prompt, {
+          model: String(body.model || 'flux'),
+          width: Number(body.width) || 768,
+          height: Number(body.height) || 1344,
+          seed: body.seed !== undefined ? Number(body.seed) : undefined,
+        })
+        bytes = pol.bytes
+        contentType = pol.contentType
+        fallback = Boolean(pol.fallback)
+        usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
+      }
+    } else {
+      const pol = await generateImageBytes(prompt, {
+        model: String(body.model || 'flux'),
+        width: Number(body.width) || 768,
+        height: Number(body.height) || 1344,
+        seed: body.seed !== undefined ? Number(body.seed) : undefined,
+      })
+      bytes = pol.bytes
+      contentType = pol.contentType
+      fallback = Boolean(pol.fallback)
+      usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
+    }
+
     const ext = contentType.includes('png') ? 'png' : contentType.includes('svg') ? 'svg' : 'jpg'
     const key = `images/${uid('img_')}.${ext}`
     const saved = await putAssetSmart(c.env, key, bytes, contentType)
@@ -303,7 +357,15 @@ app.post('/api/media/image', async (c) => {
         console.error('save image asset failed', e)
       }
     }
-    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType, fallback: Boolean(fallback) })
+    return c.json({
+      id: assetId,
+      url: saved.url,
+      key,
+      size: saved.size,
+      content_type: contentType,
+      fallback: Boolean(fallback),
+      provider: usedProvider,
+    })
   } catch (e: any) {
     return c.json(bad(`Tạo ảnh thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
   }
@@ -381,6 +443,65 @@ app.post('/api/media/video/:blueprintId', async (c) => {
     console.error('save video asset failed', e)
   }
   return c.json({ id: assetId, url, key: url, size })
+})
+
+// ------------------------------------------------------------------ BƯỚC 6b: Video AI bằng Veo (phương án 2)
+
+app.post('/api/media/ai-video', async (c) => {
+  if (!hasGemini(c.env)) return c.json(bad('Chưa cấu hình GEMINI_API_KEY (AI Studio)'), 503)
+  const body = await c.req.json().catch(() => ({}))
+  const prompt = String(body.prompt || '').trim()
+  if (prompt.length < 8) return c.json(bad('Prompt video quá ngắn (tối thiểu 8 ký tự)'), 400)
+
+  try {
+    const operation = await startVeoOperation(c.env, prompt, {
+      model: String(body.model || ''),
+      aspectRatio: String(body.aspect_ratio || '9:16'),
+    })
+    return c.json({ operation, model: VEO_MODELS.includes(body.model) ? body.model : VEO_MODELS[0] })
+  } catch (e: any) {
+    return c.json(bad(`Không khởi động được Veo: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+  }
+})
+
+app.get('/api/media/ai-video/status', async (c) => {
+  if (!hasGemini(c.env)) return c.json(bad('Chưa cấu hình GEMINI_API_KEY (AI Studio)'), 503)
+  const name = String(c.req.query('name') || '')
+  const blueprintId = String(c.req.query('blueprint_id') || '')
+  try {
+    const status = await getVeoOperationStatus(c.env, name)
+    if (!status.done) return c.json({ done: false })
+    if ('error' in status && status.error) return c.json({ done: true, error: status.error })
+
+    const uri = (status as { videoUri: string }).videoUri
+    // Có Blob → tải về và lưu lâu dài; chưa có Blob → client xem/tải trực tiếp
+    // từ URI Google (hết hạn ~vài ngày).
+    if (c.env.BLOB_READ_WRITE_TOKEN) {
+      const bytes = await downloadVeoVideo(c.env, uri)
+      const key = `videos/veo_${uid('v_')}.mp4`
+      const saved = await putAsset(c.env, key, bytes, 'video/mp4')
+      const assetId = uid('as_')
+      if (blueprintId) {
+        try {
+          await c.env.DB.prepare(
+            `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?)`
+          )
+            .bind(assetId, blueprintId, 'video', 0, saved.key, 'video/mp4', saved.size, `veo:${name}`.slice(0, 500), now())
+            .run()
+          await c.env.DB.prepare(`UPDATE blueprints SET status = 'rendered', updated_at = ? WHERE id = ?`)
+            .bind(now(), blueprintId)
+            .run()
+        } catch (e) {
+          console.error('save veo asset failed', e)
+        }
+      }
+      return c.json({ done: true, id: assetId, url: saved.url, key, size: saved.size, provider: 'veo' })
+    }
+    return c.json({ done: true, url: uri, provider: 'veo', note: 'URI Google tạm thởi — hãy tải về sớm', expires_source: true })
+  } catch (e: any) {
+    return c.json(bad(`Kiểm tra trạng thái Veo thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+  }
 })
 
 // ------------------------------------------------------------------ Vercel Blob upload & legacy media endpoint
@@ -822,6 +943,7 @@ export function createBindings(environment: Record<string, string | undefined>):
     BLOB_READ_WRITE_TOKEN: environment.BLOB_READ_WRITE_TOKEN,
     OPENAI_API_KEY: environment.OPENAI_API_KEY,
     OPENAI_BASE_URL: environment.OPENAI_BASE_URL,
+    GEMINI_API_KEY: environment.GEMINI_API_KEY || environment.GOOGLE_API_KEY,
   }
 }
 

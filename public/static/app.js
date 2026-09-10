@@ -303,6 +303,12 @@ function renderBlueprint() {
       <div class="tool-row">
         <button class="button primary" type="button" data-gen-images><i class="fas fa-images"></i> Tạo ảnh cho tất cả shot</button>
         <button class="button ghost" type="button" data-gen-cover><i class="fas fa-star"></i> Chỉ tạo ảnh bìa</button>
+        ${state.config?.gemini ? `
+        <select id="image-provider" title="Nguồn tạo ảnh">
+          <option value="auto">Nguồn ảnh: Tự động (Gemini → Pollinations)</option>
+          <option value="gemini">Gemini (Google) — bắt buộc</option>
+          <option value="pollinations">Pollinations (miễn phí)</option>
+        </select>` : ''}
       </div>
       <div class="job" id="image-job">
         <div class="job-line"><span id="image-msg">Đang chuẩn bị…</span><b id="image-pct">0%</b></div>
@@ -332,6 +338,24 @@ function renderBlueprint() {
         <button class="button primary solid" type="button" data-open-render><i class="fas fa-film"></i> Dựng video 9:16</button>
       </div>
       <div id="video-output" class="render-result"></div>
+
+      ${state.config?.gemini ? `
+      <div class="ai-video-block" style="margin-top:16px;border-top:1px dashed rgba(102,245,205,.25);padding-top:14px">
+        <div class="section-title">Phương án 2 · Video AI bằng Google Veo <small>VIDEO THẬT · CÓ AUDIO · TỐN QUOTA (CẦN BILLING)</small></div>
+        <label style="display:block;margin-bottom:10px">Prompt video (từ concept — có thể chỉnh)
+          <textarea id="veo-prompt" rows="3" spellcheck="false">${safe(bp.concept)}. Cinematic vertical video, smooth camera movement, high detail.</textarea>
+        </label>
+        <div class="tool-row">
+          <button class="button primary" type="button" data-gen-ai-video><i class="fas fa-clapperboard"></i> Tạo video bằng Veo AI</button>
+          <select id="veo-model" title="Model Veo">
+            ${(state.config.veo_models || []).map((m) => `<option value="${safe(m)}">${safe(m)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="job" id="aivideo-job">
+          <div class="job-line"><span id="aivideo-msg">Sẵn sàng</span><b id="aivideo-pct">0%</b></div>
+          <div class="bar"><i id="aivideo-bar"></i></div>
+        </div>
+      </div>` : ''}
     </section>
 
     <section class="section-card">
@@ -428,9 +452,10 @@ async function generateShotImage(index) {
       shot_index: index,
       width: 768,
       height: 1344,
+      provider: $('#image-provider')?.value || 'auto',
     }),
   });
-  state.images[index] = { url: data.url, key: data.key, fallback: Boolean(data.fallback) };
+  state.images[index] = { url: data.url, key: data.key, fallback: Boolean(data.fallback), provider: data.provider };
   renderImageStrip();
   return data;
 }
@@ -809,6 +834,56 @@ async function renderVideo() {
   }
 }
 
+/* ============================== BƯỚC 6b: video AI bằng Veo ============================== */
+async function genAiVideo(button) {
+  const bp = state.blueprint;
+  if (!bp) return notify('Chưa có blueprint', true);
+  const prompt = ($('#veo-prompt')?.value || bp.concept || '').trim();
+  if (prompt.length < 8) return notify('Prompt video quá ngắn (tối thiểu 8 ký tự)', true);
+
+  const restore = busy(button, 'Đang gửi Veo…');
+  try {
+    progress('aivideo', 4, 'Đang khởi động Veo…');
+    const start = await api('/api/media/ai-video', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, model: $('#veo-model')?.value || '', blueprint_id: state.blueprintId }),
+    });
+    const name = start.operation;
+    if (!name) throw new Error('Veo không trả về operation');
+
+    // Veo mất ~1–3 phút: poll mỗi 7 giây, tối đa 8 phút.
+    const t0 = Date.now();
+    const MAX_MS = 8 * 60 * 1000;
+    const POLL_MS = 7000;
+    let final = null;
+    while (Date.now() - t0 < MAX_MS) {
+      await new Promise((r) => setTimeout(r, POLL_MS));
+      const st = await api(
+        `/api/media/ai-video/status?name=${encodeURIComponent(name)}&blueprint_id=${encodeURIComponent(state.blueprintId || '')}`,
+      );
+      if (st.done) { final = st; break; }
+      const pct = Math.min(92, 6 + ((Date.now() - t0) / MAX_MS) * 86);
+      progress('aivideo', pct, 'Veo đang tạo video (thường 1–3 phút)…');
+    }
+    if (!final) throw new Error('Veo mất quá nhiều thởi gian — operation vẫn chạy, hãy thử lại sau');
+    if (final.error) throw new Error(`Veo báo lỗi: ${final.error}`);
+    if (!final.url) throw new Error('Không nhận được URL video');
+
+    state.video = { url: final.url, key: final.key || null };
+    const warn = final.expires_source ? ' · URI Google tạm thởi — hãy tải về sớm' : '';
+    progress('aivideo', 100, `Veo hoàn tất${warn}`);
+    const html = `
+      <video controls src="${safe(final.url)}"></video>
+      <a class="download" href="${safe(final.url)}" download="veo-ai.mp4"><i class="fas fa-download"></i> TẢI VIDEO VEO${warn}</a>`;
+    $('#video-output').innerHTML = html;
+    notify(`Veo đã tạo video xong${warn}`, Boolean(final.expires_source));
+    loadLibrary();
+  } catch (err) {
+    progress('aivideo', 0, 'Veo thất bại');
+    notify(err.message, true);
+  } finally { restore(); }
+}
+
 /* ============================== BƯỚC 7: gói phân phối ============================== */
 const PLATFORM_ICON = {
   tiktok: 'fab fa-tiktok', facebook: 'fab fa-facebook',
@@ -901,6 +976,7 @@ $('#blueprint').addEventListener('click', (event) => {
   if (target.hasAttribute('data-gen-cover')) return generateAllImages(target, true);
   if (target.hasAttribute('data-gen-voice')) return generateVoice(target);
   if (target.hasAttribute('data-open-render')) return renderVideo();
+  if (target.hasAttribute('data-gen-ai-video')) return genAiVideo(target);
   if (target.hasAttribute('data-build-packs')) return buildPacks(target);
 });
 

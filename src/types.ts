@@ -5,6 +5,7 @@ export type Bindings = {
   BLOB_READ_WRITE_TOKEN?: string
   OPENAI_API_KEY?: string
   OPENAI_BASE_URL?: string
+  GEMINI_API_KEY?: string
 }
 
 export type Shot = {

@@ -74,10 +74,24 @@ Trong project Vercel:
 DATABASE_URL=postgresql://...                 # URL Neon, có SSL
 BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
 
+# Phương án 2 (không bắt buộc): ảnh bằng Gemini native image + video bằng Veo
+# Key AI Studio định dạng mới "AQ.Ab..." — chỉ hoạt động với native endpoint,
+# app đã xử lý đúng (header x-goog-api-key), không nhét vào OPENAI_API_KEY được.
+GEMINI_API_KEY=AQ.Ab...
+
 # Không bắt buộc: thiếu key app vẫn dùng fallback cục bộ
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://www.genspark.ai/api/llm_proxy/v1
 ```
+
+#### Phương án 2 — Gemini/Veo khi có `GEMINI_API_KEY`
+
+| Nút | Hành vi khi có key | Khi không có key |
+|---|---|---|
+| Bước 04 · Ảnh | Thêm chọn nguồn: Tự động (Gemini → Pollinations), chỉ Gemini, chỉ Pollinations | Chỉ Pollinations (offline → SVG placeholder) |
+| Bước 06 · Video AI | Nút "Tạo video bằng Veo AI" (video thật 9:16 có audio, ~1–3 phút mỗi video, client poll operation) | Ẩn — chỉ có render Canvas trong browser |
+
+Lưu ý: Veo và ảnh chất lượng cao có thể cần **Billing** trên Google Cloud project của key; khi hết quota server trả lỗi rõ (429) và ảnh tự rơi về Pollinations khi đang ở chế độ "Tự động". Video Veo khi chưa có Blob sẽ trả về **URI Google tạm thởi** — hãy tải về sớm.
 
 ### 2. Tạo schema Neon
 
