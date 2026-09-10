@@ -57,23 +57,33 @@ export async function generateImageBytes(
   const model = opts.model && IMAGE_MODELS.includes(opts.model as any) ? opts.model : 'flux'
   const seed = opts.seed ?? Math.floor(Math.random() * 1_000_000)
 
-  const url =
-    `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.slice(0, 900))}` +
-    `?width=${width}&height=${height}&model=${model}&seed=${seed}&nologo=true&safe=true`
+  // Pollinations hay lỗi lẻ (429/5xx): thử tối đa 2 lần, lần 2 đổi seed.
+  let lastErr: any = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const attemptSeed = seed + attempt * 7919
+    const url =
+      `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.slice(0, 900))}` +
+      `?width=${width}&height=${height}&model=${model}&seed=${attemptSeed}&nologo=true&safe=true`
 
-  const controller = new AbortController()
-  // Keep remote generation below the Function execution ceiling on Vercel.
-  const timer = setTimeout(() => controller.abort(), 50_000)
-  try {
-    const res = await fetch(url, { signal: controller.signal })
-    if (!res.ok) throw new Error(`Image API ${res.status}`)
-    const contentType = res.headers.get('content-type') || 'image/jpeg'
-    const bytes = await res.arrayBuffer()
-    if (bytes.byteLength < 1024) throw new Error('Ảnh trả về không hợp lệ')
-    return { bytes, contentType }
-  } finally {
-    clearTimeout(timer)
+    const controller = new AbortController()
+    // Keep remote generation below the Function execution ceiling on Vercel.
+    const timer = setTimeout(() => controller.abort(), 50_000)
+    try {
+      const res = await fetch(url, { signal: controller.signal })
+      if (!res.ok) throw new Error(`Image API ${res.status}`)
+      const contentType = res.headers.get('content-type') || 'image/jpeg'
+      if (!/^image\//.test(contentType)) throw new Error('Phản hồi không phải ảnh')
+      const bytes = await res.arrayBuffer()
+      if (bytes.byteLength < 1024) throw new Error('Ảnh trả về không hợp lệ')
+      return { bytes, contentType }
+    } catch (err) {
+      lastErr = err
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 600))
+    } finally {
+      clearTimeout(timer)
+    }
   }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr))
 }
 
 // ---------------------------------------------------------------- giọng đọc (TTS)

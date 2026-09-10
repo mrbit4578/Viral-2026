@@ -29,9 +29,48 @@ export interface AppDatabase {
   batch(statements: BoundStatement[]): Promise<QueryResult[]>
 }
 
+/**
+ * Đổi placeholder kiểu D1 (`?`) sang kiểu Postgres (`$1..$n`).
+ * Bỏ qua `?` nằm trong literal 'chuỗi' hoặc "identifier" để tránh đánh số sai
+ * khi SQL có dấu hỏi trong dữ liệu (ví dụ LIKE '%?%', check json … '? key').
+ */
 function toPostgresPlaceholders(query: string): string {
   let index = 0
-  return query.replace(/\?/g, () => `$${++index}`)
+  let inSingle = false
+  let inDouble = false
+  let out = ''
+  for (let i = 0; i < query.length; i++) {
+    const ch = query[i]
+    if (inSingle) {
+      out += ch
+      if (ch === "'") {
+        if (query[i + 1] === "'") {
+          out += "'"
+          i++
+        } else {
+          inSingle = false
+        }
+      }
+      continue
+    }
+    if (inDouble) {
+      out += ch
+      if (ch === '"') inDouble = false
+      continue
+    }
+    if (ch === "'") {
+      inSingle = true
+      out += ch
+    } else if (ch === '"') {
+      inDouble = true
+      out += ch
+    } else if (ch === '?') {
+      out += `$${++index}`
+    } else {
+      out += ch
+    }
+  }
+  return out
 }
 
 class NeonBoundStatement implements BoundStatement {

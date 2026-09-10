@@ -108,6 +108,18 @@ npm run dev
 
 Khởi động xong, mở `http://localhost:3000` hoặc URL Vercel Dev CLI in ra. Không commit `.env.local` hay thư mục `.vercel`.
 
+## Các tối ưu đã áp dụng (bản hiện tại)
+
+- **Studio sửa lỗi dropdown Model AI**: `/api/config` trả `default_text_model` + mảng tên model (string); trạng thái Studio hiện đọc đúng định dạng này (bản cũ đọc `{key, label}` → hiển thị "undefined").
+- **Routing toàn diện**: ngoài `/` và `/studio`, `vercel.json` có rewrite catch-all cho mọi đường dẫn không phải `/api/*` hay file tĩnh → SPA fallback hoạt động khi mở trực tiếp bất kỳ URL nào.
+- **Entry Function cứng hơn**: `api/[[...path]].js` chấp nhận cả 2 dạng export của bundle CJS (tránh 500 khi interop khác kỳ vọng).
+- **Dịch phụ đề nhanh gấp ~3 lần**: các lô 25 dòng chạy song song (giới hạn 3 lô) thay vì tuần tự — tránh vượt 60 giây của Vercel Hobby với SRT dài.
+- **Nạp tài liệu RAG nhanh ~20 lần**: chunk được ghi bằng multi-row INSERT (1 query / 20 chunk) thay vì 1 query/chunk.
+- **Tạo ảnh tin cậy hơn**: server retry khi dịch vụ ảnh flake (đổi seed, kiểm tra content-type), client render song song tối đa 3 ảnh/lần và bỏ qua shot đã có ảnh.
+- **Số liệu đúng kiểu**: các truy vấn tổng hợp ép `::float8`/`::int` vì Neon trả `SUM`/`COUNT` dạng string.
+- **Tránh bản ghi "ma"**: blueprint chỉ gắn `idea_id` khi idea thực sự tồn tại (tránh lỗi FK âm thầm khiến blueprint không được lưu).
+- **UX liền mạch**: nút "Dùng làm ý tưởng →" trong Studio nạp kịch bản vào ô chủ đề của dây chuyền; xoá blueprint đang mở sẽ reset workspace; đã bổ sung favicon và header cache/bảo mật (`X-Frame-Options`, `nosniff`, cache `/static/*`).
+
 ## Lưu ý vận hành
 
 - Vercel Hobby có thời lượng Function hữu hạn; các gọi AI/ảnh được giới hạn 50 giây để tránh request treo.

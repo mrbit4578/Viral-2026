@@ -7,6 +7,9 @@ import type { Bindings } from '../types.js'
 import { parseSRT, composeSRT } from './srt.js'
 
 const BATCH_SIZE = 25
+// Dịch song song có giới hạn: 400 câu = 16 lô chạy tuần tự dễ vượt 60s của
+// Vercel Hobby Function; 3 lô đồng thởi nhanh gấp ~3 lần mà vẫn an toàn rate-limit.
+const BATCH_CONCURRENCY = 3
 const LINE_RE = /^\s*(\d+)\s*\|\|\s*(.*)$/
 
 export const TRANSLATE_LANGS: Record<string, string> = {
@@ -65,27 +68,36 @@ export async function translateTexts(
   }
 
   let translated = 0
-  for (const idxs of batches) {
-    const payload = idxs.map((idx, j) => `${j + 1}||${texts[idx]}`).join('\n')
-    let answer = ''
-    try {
-      answer = await ask(env, SYSTEM(target), payload, model)
-    } catch {
-      continue // giữ nguyên lô này
-    }
-    const parsed = new Map<number, string>()
-    for (const line of answer.split('\n')) {
-      const m = LINE_RE.exec(line)
-      if (m) parsed.set(Number(m[1]), m[2].trim())
-    }
-    idxs.forEach((idx, j) => {
-      const v = parsed.get(j + 1)
-      if (v) {
-        results[idx] = v
-        translated++
+  let cursor = 0
+  // Worker pool: mỗi worker lấy lô kế tiếp cho tới khi hết. Kết quả vẫn ghi
+  // đúng vị trí gốc trong `results` nên thứ tự phụ đề không đổi.
+  const worker = async () => {
+    while (cursor < batches.length) {
+      const idxs = batches[cursor++]
+      const payload = idxs.map((idx, j) => `${j + 1}||${texts[idx]}`).join('\n')
+      let answer = ''
+      try {
+        answer = await ask(env, SYSTEM(target), payload, model)
+      } catch {
+        continue // giữ nguyên lô này
       }
-    })
+      const parsed = new Map<number, string>()
+      for (const line of answer.split('\n')) {
+        const m = LINE_RE.exec(line)
+        if (m) parsed.set(Number(m[1]), m[2].trim())
+      }
+      idxs.forEach((idx, j) => {
+        const v = parsed.get(j + 1)
+        if (v) {
+          results[idx] = v
+          translated++
+        }
+      })
+    }
   }
+  await Promise.all(
+    Array.from({ length: Math.min(BATCH_CONCURRENCY, batches.length) }, () => worker()),
+  )
   return { texts: results, translated_lines: translated, batches: batches.length, llm: true }
 }
 

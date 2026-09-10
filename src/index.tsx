@@ -163,6 +163,20 @@ app.post('/api/forge/blueprint', async (c) => {
   const blueprint = await generateBlueprint(c.env, brief)
   const id = uid('bp_')
 
+  // Chặn idea_id "ma": nếu idea chưa được lưu thì gắn NULL, tránh lỗi FK
+  // khiến blueprint mất bản ghi DB dù API vẫn trả về thành công.
+  let ideaId: string | null = null
+  if (body.idea_id) {
+    try {
+      const exists = await c.env.DB.prepare(`SELECT 1 FROM ideas WHERE id = ?`)
+        .bind(String(body.idea_id))
+        .first()
+      ideaId = exists ? String(body.idea_id) : null
+    } catch {
+      ideaId = null
+    }
+  }
+
   try {
     await c.env.DB.prepare(
       `INSERT INTO blueprints (id, idea_id, title, concept, viral_score, duration_sec, language, platform, data_json, status, created_at, updated_at)
@@ -170,7 +184,7 @@ app.post('/api/forge/blueprint', async (c) => {
     )
       .bind(
         id,
-        body.idea_id ? String(body.idea_id) : null,
+        ideaId,
         blueprint.titles?.[0] || blueprint.concept.slice(0, 120),
         blueprint.concept,
         blueprint.viral_score,
@@ -537,28 +551,30 @@ app.post('/api/metrics', async (c) => {
 })
 
 app.get('/api/metrics/summary', async (c) => {
+  // Neon trả SUM/COUNT dưới dạng string (int8/numeric) — ép ::float8/::int
+  // để JSON ra số thật và client không phải tự coerce.
   const totals = await c.env.DB.prepare(
-    `SELECT COUNT(*) AS entries,
-            COALESCE(SUM(views),0) AS views,
-            COALESCE(SUM(likes),0) AS likes,
-            COALESCE(SUM(comments),0) AS comments,
-            COALESCE(SUM(shares),0) AS shares,
-            COALESCE(SUM(followers_gained),0) AS followers,
-            COALESCE(SUM(revenue_usd),0) AS revenue
+    `SELECT COUNT(*)::int AS entries,
+            COALESCE(SUM(views),0)::float8 AS views,
+            COALESCE(SUM(likes),0)::float8 AS likes,
+            COALESCE(SUM(comments),0)::float8 AS comments,
+            COALESCE(SUM(shares),0)::float8 AS shares,
+            COALESCE(SUM(followers_gained),0)::float8 AS followers,
+            COALESCE(SUM(revenue_usd),0)::float8 AS revenue
      FROM metrics`
   ).first<any>()
 
   const { results: byPlatform } = await c.env.DB.prepare(
     `SELECT platform,
-            COALESCE(SUM(views),0) AS views,
-            COALESCE(SUM(revenue_usd),0) AS revenue,
-            COALESCE(SUM(followers_gained),0) AS followers,
-            COUNT(*) AS posts
+            COALESCE(SUM(views),0)::float8 AS views,
+            COALESCE(SUM(revenue_usd),0)::float8 AS revenue,
+            COALESCE(SUM(followers_gained),0)::float8 AS followers,
+            COUNT(*)::int AS posts
      FROM metrics GROUP BY platform ORDER BY revenue DESC`
   ).all()
 
   const { results: bySource } = await c.env.DB.prepare(
-    `SELECT revenue_source, COALESCE(SUM(revenue_usd),0) AS revenue
+    `SELECT revenue_source, COALESCE(SUM(revenue_usd),0)::float8 AS revenue
      FROM metrics GROUP BY revenue_source ORDER BY revenue DESC`
   ).all()
 
@@ -568,9 +584,9 @@ app.get('/api/metrics/summary', async (c) => {
   ).all()
 
   const counts = await c.env.DB.prepare(
-    `SELECT (SELECT COUNT(*) FROM blueprints) AS blueprints,
-            (SELECT COUNT(*) FROM assets WHERE kind='video') AS videos,
-            (SELECT COUNT(*) FROM distributions) AS packs`
+    `SELECT (SELECT COUNT(*) FROM blueprints)::int AS blueprints,
+            (SELECT COUNT(*) FROM assets WHERE kind='video')::int AS videos,
+            (SELECT COUNT(*) FROM distributions)::int AS packs`
   ).first<any>()
 
   const views = Number(totals?.views || 0)

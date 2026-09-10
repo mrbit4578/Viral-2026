@@ -122,6 +122,18 @@ async function boot() {
     $('#health-text').textContent = 'Mất kết nối API';
     console.error(err);
   }
+
+  // Studio "Dùng làm ý tưởng →" chuyển kịch bản sang đây qua sessionStorage
+  try {
+    const prefilled = sessionStorage.getItem('forge_topic');
+    if (prefilled) {
+      sessionStorage.removeItem('forge_topic');
+      $('#topic').value = prefilled;
+      notify('Đã nạp kịch bản từ Studio — bấm "Cải tiến ý tưởng" hoặc "Tạo Viral Blueprint"');
+      $('#topic').focus();
+    }
+  } catch { /* sessionStorage bị chặn */ }
+
   loadMetrics();
   loadLibrary();
 }
@@ -425,21 +437,37 @@ async function generateShotImage(index) {
 async function generateAllImages(button, onlyCover = false) {
   const shots = state.blueprint?.shots || [];
   if (!shots.length) return notify('Chưa có shot list', true);
-  const targets = onlyCover ? [0] : shots.map((_, i) => i);
+  const targets = onlyCover ? [0] : shots.map((_, i) => i).filter((i) => !state.images[i]);
+  if (!targets.length) {
+    progress('image', 100, 'Tất cả shot đã có ảnh');
+    return notify('Tất cả shot đã có ảnh — dùng lại ảnh hiện tại');
+  }
   const restore = busy(button, 'Đang tạo ảnh…');
   let done = 0;
   let failed = 0;
   try {
-    for (const index of targets) {
-      progress('image', (done / targets.length) * 100, `Đang tạo ảnh shot ${index + 1}/${targets.length}…`);
-      try {
-        await generateShotImage(index);
-      } catch (err) {
-        failed++;
-        console.error('image failed', index, err);
+    // Chạy song song tối đa 3 request — nhanh gấp ~3 lần mà vẫn tránh rate limit.
+    const CONCURRENCY = 3;
+    const queue = [...targets];
+    const worker = async () => {
+      while (queue.length) {
+        const index = queue.shift();
+        if (index === undefined) return;
+        try {
+          await generateShotImage(index);
+        } catch (err) {
+          failed++;
+          console.error('image failed', index, err);
+        }
+        done++;
+        progress(
+          'image',
+          (done / targets.length) * 100,
+          `Đang tạo ảnh… ${done}/${targets.length} shot`,
+        );
       }
-      done++;
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker));
     progress('image', 100, failed ? `Xong — ${done - failed} ảnh, ${failed} lỗi` : `Đã tạo ${done} ảnh 9:16`);
     notify(failed ? `Tạo được ${done - failed}/${done} ảnh` : `Đã tạo ${done} ảnh`, failed > 0);
   } finally { restore(); }
@@ -954,6 +982,7 @@ $('#library-list').addEventListener('click', async (event) => {
       const data = await api(`/api/forge/blueprints/${encodeURIComponent(id)}`);
       state.blueprintId = data.id;
       state.blueprint = data.blueprint;
+      state.ideaId = null;
       state.images = {};
       state.audio = null;
       state.video = null;
@@ -985,8 +1014,23 @@ $('#library-list').addEventListener('click', async (event) => {
   if (delBtn) {
     if (!confirm('Xoá blueprint này và toàn bộ media của nó?')) return;
     try {
-      await api(`/api/forge/blueprints/${encodeURIComponent(delBtn.dataset.delBp)}`, { method: 'DELETE' });
+      const deletedId = delBtn.dataset.delBp;
+      await api(`/api/forge/blueprints/${encodeURIComponent(deletedId)}`, { method: 'DELETE' });
       notify('Đã xoá');
+      // Nếu xoá chính blueprint đang mở → reset workspace về trạng thái ban đầu
+      if (state.blueprintId === deletedId) {
+        state.blueprintId = null;
+        state.blueprint = null;
+        state.ideaId = null;
+        state.images = {};
+        state.audio = null;
+        state.video = null;
+        state.packs = [];
+        $('#blueprint').classList.add('hidden');
+        $('#refine-panel').classList.add('hidden');
+        $('#empty-state').classList.remove('hidden');
+        setActiveStep('step-1');
+      }
       loadLibrary();
       loadMetrics();
     } catch (err) {
