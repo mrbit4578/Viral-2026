@@ -3,8 +3,9 @@
   "type": "module",
   "scripts": {
     "dev": "npx vercel dev",
-    "build": "esbuild server/vercel-entry.ts --bundle --platform=node --format=cjs --target=node20 --outfile=server/function-bundle.cjs",
+    "build": "esbuild server/vercel-entry.ts --bundle --platform=node --format=cjs --target=node20 --outfile=server/function-bundle.cjs && esbuild src/lib/agent-core.ts --format=iife --global-name=AgentCore --outfile=public/static/agent-core.js",
     "typecheck": "tsc --noEmit",
+    "test": "node --test \"tests/*.test.mjs\"",
     "deploy": "npx vercel --prod"
   },
   "dependencies": {

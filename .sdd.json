@@ -1,0 +1,9 @@
+{
+  "project": "faceless-forge",
+  "created": "2026-09-02T16:26:17",
+  "allowed_roots": [
+    "."
+  ],
+  "test_command": "npm test",
+  "note": "Allowed List: tác nhân chỉ được thao tác trong thư mục dự án. KHÔNG bao giờ bật dangerously skip permission."
+}

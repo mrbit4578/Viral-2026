@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "public",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": null,
   "functions": {
     "api/**/*.js": {
       "maxDuration": 60
@@ -8,12 +11,24 @@
   },
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/api/page?__hono_path=/"
+      "source": "/api/(.*)",
+      "destination": "/api/[[...path]]"
     },
     {
       "source": "/studio",
-      "destination": "/api/page?__hono_path=/studio"
+      "destination": "/api/[[...path]]?__hono_path=/studio"
+    },
+    {
+      "source": "/agents",
+      "destination": "/api/[[...path]]?__hono_path=/agents"
+    },
+    {
+      "source": "/app",
+      "destination": "/api/[[...path]]?__hono_path=/"
+    },
+    {
+      "source": "/",
+      "destination": "/api/[[...path]]?__hono_path=/"
     }
   ]
 }

@@ -33,6 +33,9 @@ import {
 } from './lib/rag.js'
 import { renderPage } from './page.js'
 import { renderStudio } from './studio-page.js'
+import { renderAgents } from './agents-page.js'
+import { fetchTrends, reviewBlueprint } from './lib/agents.js'
+import { clampProgress } from './lib/agent-core.js'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -781,11 +784,96 @@ app.post('/api/rag/video-script', async (c) => {
   }
 })
 
+// ------------------------------------------------------------------ AGENT CREW (đa tác nhân)
+
+// Mỗi endpoint đúng MỘT nhiệm vụ tác nhân — Coordinator ghép ở browser (Spec BR5).
+
+app.post('/api/agents/trends', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const niche = String(body.niche || '').trim()
+  if (niche.length < 2) return c.json(bad('Hãy nhập ngách nội dung (tối thiểu 2 ký tự)'), 400)
+
+  const result = await fetchTrends(c.env, {
+    niche,
+    audience: String(body.audience || '18–34 tuổi'),
+    platform: String(body.platform || 'TikTok & YouTube Shorts'),
+    language: String(body.language || 'Tiếng Việt'),
+    // Giữ nguyên số 0 để clampCount() áp dụng biên dưới 3 (BR7);
+    // chỉ thiếu/không phải số mới dùng mặc định 5.
+    count: body.count === undefined || body.count === null || body.count === '' ? 5 : Number(body.count),
+    model: String(body.model || DEFAULT_TEXT_MODEL),
+  })
+  return c.json(result)
+})
+
+app.post('/api/agents/review', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const blueprint = body.blueprint && typeof body.blueprint === 'object' ? body.blueprint : null
+  if (!blueprint || !Array.isArray(blueprint.shots) || !blueprint.shots.length) {
+    return c.json(bad('Blueprint không hợp lệ — cần ít nhất một shot để kiểm duyệt'), 400)
+  }
+
+  const review = await reviewBlueprint(c.env, blueprint, {
+    language: String(body.language || 'Tiếng Việt'),
+    model: body.model ? String(body.model) : undefined,
+  })
+  return c.json({ review, ai: review.ai })
+})
+
+app.get('/api/agents/jobs', async (c) => {
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, type, status, progress, message, params_json, result_json, error, created_at, updated_at
+       FROM jobs WHERE type = 'agent_crew' ORDER BY created_at DESC LIMIT 20`
+    ).all()
+    return c.json({ jobs: (results || []).map((r: any) => ({
+      ...r,
+      params: safeJSON(r.params_json),
+      result: safeJSON(r.result_json),
+    })) })
+  } catch {
+    return c.json({ jobs: [] })
+  }
+})
+
+app.post('/api/agents/jobs', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const id = String(body.id || '').trim() || uid('job_')
+  const status = ['running', 'done', 'error'].includes(String(body.status)) ? String(body.status) : 'running'
+  const progress = clampProgress(body.progress)
+  const message = String(body.message || '').slice(0, 300)
+  const paramsJson = body.params ? JSON.stringify(body.params).slice(0, 20_000) : null
+  const resultJson = body.result ? JSON.stringify(body.result).slice(0, 60_000) : null
+  const error = body.error ? String(body.error).slice(0, 2_000) : null
+
+  try {
+    // Tạo mới nếu chưa có; đã có thì cập nhật (params giữ nguyên lần đầu — BR4).
+    await c.env.DB.prepare(
+      `INSERT INTO jobs (id, type, status, progress, message, params_json, result_json, error, created_at, updated_at)
+       VALUES (?,'agent_crew',?,?,?,?,?,?,NOW(),NOW())
+       ON CONFLICT (id) DO UPDATE SET
+         status = EXCLUDED.status,
+         progress = EXCLUDED.progress,
+         message = EXCLUDED.message,
+         result_json = COALESCE(EXCLUDED.result_json, jobs.result_json),
+         error = COALESCE(EXCLUDED.error, jobs.error),
+         updated_at = NOW()`
+    )
+      .bind(id, status, progress, message, paramsJson, resultJson, error)
+      .run()
+  } catch (e) {
+    console.error('save agent job failed', e)
+    return c.json(bad('Không lưu được job — kiểm tra DATABASE_URL'), 503)
+  }
+  return c.json({ id, status, progress })
+})
+
 // ------------------------------------------------------------------ frontend
 
 app.get('/', (c) => c.html(renderPage()))
 app.get('/app', (c) => c.html(renderPage()))
 app.get('/studio', (c) => c.html(renderStudio()))
+app.get('/agents', (c) => c.html(renderAgents()))
 
 app.notFound((c) => {
   if (c.req.path.startsWith('/api/')) return c.json(bad('Endpoint không tồn tại', 404), 404)

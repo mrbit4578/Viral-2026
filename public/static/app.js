@@ -943,42 +943,47 @@ async function loadLibrary() {
 
 $('#library-refresh-btn').addEventListener('click', () => { loadLibrary(); notify('Đã làm mới thư viện'); });
 
+/* Mở một blueprint theo id — dùng chung cho thư viện và deep-link /#bp=<id> (bàn giao từ Agent Crew). */
+async function openBlueprint(id) {
+  try {
+    const data = await api(`/api/forge/blueprints/${encodeURIComponent(id)}`);
+    state.blueprintId = data.id;
+    state.blueprint = data.blueprint;
+    state.images = {};
+    state.audio = null;
+    state.video = null;
+    state.packs = [];
+    (data.assets || []).forEach((a) => {
+      if (a.kind === 'image') state.images[a.shot_index || 0] = { url: a.url, key: a.r2_key };
+      if (a.kind === 'audio') state.audio = { url: a.url, key: a.r2_key };
+      if (a.kind === 'video') state.video = { url: a.url, key: a.r2_key };
+    });
+    const srtRes = await api('/api/forge/srt', { method: 'POST', body: JSON.stringify({ shots: state.blueprint.shots }) });
+    state.srt = srtRes.srt;
+    renderBlueprint();
+    if (state.audio) {
+      $('#audio-output').innerHTML = `<audio controls src="${safe(state.audio.url)}"></audio>
+        <a class="download" href="${safe(state.audio.url)}?download=1" download><i class="fas fa-download"></i> TẢI MP3</a>`;
+      progress('audio', 100, 'Đã có giọng đọc từ trước');
+    }
+    if (state.video) {
+      $('#video-output').innerHTML = `<video controls src="${safe(state.video.url)}"></video>
+        <a class="download" href="${safe(state.video.url)}?download=1" download><i class="fas fa-download"></i> TẢI VIDEO</a>`;
+    }
+    notify('Đã mở lại blueprint');
+  } catch (err) {
+    notify(err.message, true);
+  }
+}
+
 $('#library-list').addEventListener('click', async (event) => {
   const loadBtn = event.target.closest('[data-load-bp]');
   const delBtn = event.target.closest('[data-del-bp]');
 
   if (loadBtn) {
-    const id = loadBtn.dataset.loadBp;
     const restore = busy(loadBtn, '…');
-    try {
-      const data = await api(`/api/forge/blueprints/${encodeURIComponent(id)}`);
-      state.blueprintId = data.id;
-      state.blueprint = data.blueprint;
-      state.images = {};
-      state.audio = null;
-      state.video = null;
-      state.packs = [];
-      (data.assets || []).forEach((a) => {
-        if (a.kind === 'image') state.images[a.shot_index || 0] = { url: a.url, key: a.r2_key };
-        if (a.kind === 'audio') state.audio = { url: a.url, key: a.r2_key };
-        if (a.kind === 'video') state.video = { url: a.url, key: a.r2_key };
-      });
-      const srtRes = await api('/api/forge/srt', { method: 'POST', body: JSON.stringify({ shots: state.blueprint.shots }) });
-      state.srt = srtRes.srt;
-      renderBlueprint();
-      if (state.audio) {
-        $('#audio-output').innerHTML = `<audio controls src="${safe(state.audio.url)}"></audio>
-          <a class="download" href="${safe(state.audio.url)}?download=1" download><i class="fas fa-download"></i> TẢI MP3</a>`;
-        progress('audio', 100, 'Đã có giọng đọc từ trước');
-      }
-      if (state.video) {
-        $('#video-output').innerHTML = `<video controls src="${safe(state.video.url)}"></video>
-          <a class="download" href="${safe(state.video.url)}?download=1" download><i class="fas fa-download"></i> TẢI VIDEO</a>`;
-      }
-      notify('Đã mở lại blueprint');
-    } catch (err) {
-      notify(err.message, true);
-    } finally { restore(); }
+    await openBlueprint(loadBtn.dataset.loadBp);
+    restore();
     return;
   }
 
@@ -1006,6 +1011,15 @@ $$('.step-chip').forEach((chip) => {
       notify('Hãy tạo blueprint trước để mở bước này');
     }
   });
+});
+
+/* Deep-link /#bp=<id>: Agent Crew bàn giao blueprint sang dây chuyền để dựng MP4. */
+window.addEventListener('DOMContentLoaded', () => {
+  const match = location.hash.match(/^#bp=([\w-]+)$/);
+  if (match) {
+    history.replaceState(null, '', location.pathname + location.search);
+    openBlueprint(match[1]);
+  }
 });
 
 boot();

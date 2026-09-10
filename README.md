@@ -39,6 +39,22 @@ Direct upload là bắt buộc cho video lớn: request body của Vercel Functi
 | 07 | Caption riêng TikTok, Facebook, Instagram, X |
 | 08 | Dashboard views / likes / followers / doanh thu / RPM |
 | Studio | STT, dịch SRT, dub, cắt video và RAG: media chạy WebAssembly tại browser |
+| Agent Crew | `/agents` — một cú bấm chạy dây chuyền đa tác nhân (chi tiết bên dưới) |
+
+## Agent Crew — dây chuyền đa tác nhân
+
+Trang **`/agents`** điều phối một đội tác nhân theo mô hình Coordinator, chạy trọn quy trình
+`ý tưởng → trinh sát xu hướng → blueprint → kiểm duyệt → ảnh 9:16 → giọng đọc → gói phân phối`.
+Spec đầy đủ nằm ở [`specs/spec-agent-crew.md`](./specs/spec-agent-crew.md).
+
+- **Coordinator** (chạy tại browser): ghép từng bước thành các request đơn lẻ, đúng triết lý
+  "việc nặng chạy tại browser" và trần 60 giây của Vercel Function. Tiến độ được lưu bảng `jobs`
+  (type `agent_crew`) nên tải lại trang vẫn thấy lịch sử.
+- **Trend Scout Agent**: đề xuất góc nội dung bám xu hướng theo ngách (mỗi request 1 lần gọi LLM).
+- **QA Review Agent**: kiểm duyệt blueprint trước khi sản xuất media — gate `approve/revise`,
+  tối đa 2 lượt revise thì dừng.
+- **Fallback không cần AI:** thiếu `OPENAI_API_KEY` thì Trend Scout trả góc nội dung định sẵn,
+  Review tự approve kèm cảnh báo "kiểm duyệt thủ công" — không bao giờ lỗi 500.
 
 ## API chính
 
@@ -56,6 +72,10 @@ Direct upload là bắt buộc cho video lớn: request body của Vercel Functi
 | POST | `/api/blob/upload` | Handshake để browser upload Blob trực tiếp |
 | POST | `/api/media/video/:blueprintId` | Lưu metadata URL video Blob sau upload |
 | POST | `/api/distribution/build` | Tạo gói đăng đa nền tảng |
+| GET | `/agents` | Trang "Đội tác nhân" (Agent Crew) |
+| POST | `/api/agents/trends` | Trend Scout: góc nội dung bám xu hướng theo ngách |
+| POST | `/api/agents/review` | QA Agent: kiểm duyệt blueprint (approve/revise) |
+| GET/POST | `/api/agents/jobs` | Lịch sử / cập nhật tiến độ các lần chạy Agent Crew |
 | GET/POST/DELETE | `/api/studio/jobs[/:id]` | Lịch sử Studio |
 | GET/POST/DELETE | `/api/rag/docs[/:id]` | Tài liệu RAG |
 
@@ -114,6 +134,17 @@ Khởi động xong, mở `http://localhost:3000` hoặc URL Vercel Dev CLI in r
 - Giữ tab mở trong khi render video, STT, Dub hoặc Băm: công việc nặng chạy tại browser.
 - App không tự đăng bài. Tự động đăng cần OAuth app và quy trình review của từng nền tảng.
 - Bạn chịu trách nhiệm kiểm chứng nội dung, quyền dùng tư liệu và yêu cầu disclosure nội dung AI của từng nền tảng.
+
+## Kiểm thử
+
+```powershell
+npm test          # 29 test: unit agent-core + smoke API (chạy được không cần AI key)
+npx tsc --noEmit  # typecheck
+npm run build     # bundle server + agent-core client
+```
+
+Test Agent viết test độc lập chỉ dựa vào Spec (`specs/spec-agent-crew.md`), không đọc code
+Dev Agent — đúng quy trình SDD kiểm tra chéo đa tác nhân.
 
 ## Nguồn tham khảo
 

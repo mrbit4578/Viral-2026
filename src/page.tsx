@@ -26,6 +26,7 @@ export function renderPage(): string {
     <a href="#workflow" class="topnav-link">Dây chuyền</a>
     <a href="#revenue-section" class="topnav-link">Thu nhập</a>
     <a href="#library-section" class="topnav-link">Thư viện</a>
+    <a href="/agents" class="topnav-link">Đội tác nhân</a>
   </nav>
   <span class="status" id="health-status"><i></i> <span id="health-text">Đang kiểm tra…</span></span>
 </header>

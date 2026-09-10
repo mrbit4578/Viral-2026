@@ -21,7 +21,7 @@ node_modules/
 .env.production
 .dev.vars
 .env.local
-server/function-bundle.cjs
+# server/function-bundle.cjs is built by 'npm run build' and committed
 
 # logs
 logs/
