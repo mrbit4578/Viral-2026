@@ -411,7 +411,8 @@ function renderImageStrip() {
   strip.innerHTML = shots.map((shot, i) => {
     const img = state.images[i];
     if (img) {
-      return `<div class="asset-cell"><img src="${safe(img.url)}" alt="Shot ${i + 1}" loading="lazy" /><span>${i + 1}</span></div>`;
+      const fb = img.fallback ? ' title="Ảnh dự phòng (dịch vụ ảnh AI ngoại tuyến)" style="outline:2px dashed rgba(255,211,107,.55);outline-offset:-2px"' : '';
+      return `<div class="asset-cell"${fb}><img src="${safe(img.url)}" alt="Shot ${i + 1}" loading="lazy" /><span>${i + 1}</span></div>`;
     }
     return `<div class="asset-cell loading"><span>${i + 1}</span>chưa có</div>`;
   }).join('');
@@ -429,7 +430,7 @@ async function generateShotImage(index) {
       height: 1344,
     }),
   });
-  state.images[index] = { url: data.url, key: data.key };
+  state.images[index] = { url: data.url, key: data.key, fallback: Boolean(data.fallback) };
   renderImageStrip();
   return data;
 }
@@ -445,6 +446,7 @@ async function generateAllImages(button, onlyCover = false) {
   const restore = busy(button, 'Đang tạo ảnh…');
   let done = 0;
   let failed = 0;
+  let usedFallback = 0;
   try {
     // Chạy song song tối đa 3 request — nhanh gấp ~3 lần mà vẫn tránh rate limit.
     const CONCURRENCY = 3;
@@ -454,7 +456,8 @@ async function generateAllImages(button, onlyCover = false) {
         const index = queue.shift();
         if (index === undefined) return;
         try {
-          await generateShotImage(index);
+          const result = await generateShotImage(index);
+          if (result.fallback) usedFallback++;
         } catch (err) {
           failed++;
           console.error('image failed', index, err);
@@ -468,8 +471,19 @@ async function generateAllImages(button, onlyCover = false) {
       }
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker));
-    progress('image', 100, failed ? `Xong — ${done - failed} ảnh, ${failed} lỗi` : `Đã tạo ${done} ảnh 9:16`);
-    notify(failed ? `Tạo được ${done - failed}/${done} ảnh` : `Đã tạo ${done} ảnh`, failed > 0);
+    const okCount = done - failed;
+    progress(
+      'image',
+      100,
+      failed
+        ? `Xong — ${okCount} ảnh, ${failed} lỗi`
+        : usedFallback
+          ? `Xong — ${usedFallback}/${okCount} ảnh dùng placeholder (dịch vụ ảnh AI offline)`
+          : `Đã tạo ${okCount} ảnh 9:16`,
+    );
+    if (failed) notify(`Tạo được ${okCount}/${done} ảnh`, true);
+    else if (usedFallback) notify(`Đã tạo ${okCount} ảnh — ${usedFallback} ảnh là placeholder vì dịch vụ ảnh AI ngoại tuyến`, true);
+    else notify(`Đã tạo ${okCount} ảnh`);
   } finally { restore(); }
 }
 
@@ -485,11 +499,19 @@ async function generateVoice(button) {
       body: JSON.stringify({ text: script, voice: $('#voice').value, blueprint_id: state.blueprintId }),
     });
     state.audio = { url: data.url, key: data.key };
-    progress('audio', 100, `Đã tạo giọng đọc · ${data.chunks} đoạn · ${nf.format(data.chars)} ký tự`);
+    const note = data.fallback
+      ? ' · ÂM TONE DỰ PHÒNG (dịch vụ TTS đang ngoại tuyến)'
+      : data.missing
+        ? ` · thiếu ${data.missing}/${data.chunks} đoạn`
+        : '';
+    progress('audio', 100, `Đã tạo audio · ${data.chunks} đoạn · ${nf.format(data.chars)} ký tự${note}`);
+    const ext = data.fallback ? 'WAV (dự phòng)' : 'MP3';
     $('#audio-output').innerHTML = `
       <audio controls src="${safe(data.url)}"></audio>
-      <a class="download" href="${safe(data.url)}?download=1" download><i class="fas fa-download"></i> TẢI MP3</a>`;
-    notify('Voice-over đã sẵn sàng');
+      <a class="download" href="${safe(data.url)}" download="voice-over.${data.fallback ? 'wav' : 'mp3'}"><i class="fas fa-download"></i> TẢI ${ext}</a>`;
+    if (data.fallback) notify('Dịch vụ TTS ngoại tuyến — dùng âm tone dự phòng, timing vẫn đúng', true);
+    else if (data.missing) notify(`Voice-over sẵn sàng nhưng thiếu ${data.missing} đoạn`, true);
+    else notify('Voice-over đã sẵn sàng');
   } catch (err) {
     progress('audio', 0, 'Tạo giọng thất bại');
     notify(err.message, true);
@@ -740,27 +762,46 @@ async function renderVideo() {
     if (blob.size < 2048) throw new Error('Video rỗng — thử lại');
 
     const ext = type.includes('mp4') ? 'mp4' : 'webm';
-    const upload = await uploadToVercelBlob(
-      blob,
-      `videos/vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`,
-      { blueprintId: state.blueprintId, kind: 'video' },
-    );
-    const saved = await api(`/api/media/video/${encodeURIComponent(state.blueprintId)}`, {
-      method: 'POST',
-      body: JSON.stringify({ url: upload.url, size: blob.size, content_type: type }),
-    });
+    const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
 
-    state.video = { url: saved.url, key: saved.key };
-    const sizeMB = (saved.size / 1024 / 1024).toFixed(2);
+    // Cố gắng upload Blob; nếu chưa cấu hình BLOB_READ_WRITE_TOKEN (hoặc Blob lỗi)
+    // thì rơi về chế độ local: video hiển thị/tải về ngay, pipeline không gãy.
+    let saved = null;
+    try {
+      const upload = await uploadToVercelBlob(
+        blob,
+        `videos/vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`,
+        { blueprintId: state.blueprintId, kind: 'video' },
+      );
+      saved = await api(`/api/media/video/${encodeURIComponent(state.blueprintId)}`, {
+        method: 'POST',
+        body: JSON.stringify({ url: upload.url, size: blob.size, content_type: type }),
+      });
+    } catch (uploadErr) {
+      console.warn('Blob upload không khả dụng, dùng chế độ local:', uploadErr);
+    }
 
-    progress('render', 100, `Hoàn tất · ${sizeMB} MB · ${ext.toUpperCase()}`);
-    const html = `
-      <video controls src="${safe(saved.url)}"></video>
-      <a class="download" href="${safe(saved.url)}?download=1" download="faceless-forge.${ext}"><i class="fas fa-download"></i> TẢI VIDEO ${ext.toUpperCase()} (${sizeMB} MB)</a>`;
-    $('#render-output').innerHTML = html;
-    $('#video-output').innerHTML = html;
-    notify(`Video đã render xong · ${sizeMB} MB`);
-    loadLibrary();
+    if (saved) {
+      state.video = { url: saved.url, key: saved.key };
+      progress('render', 100, `Hoàn tất · ${sizeMB} MB · ${ext.toUpperCase()}`);
+      const html = `
+        <video controls src="${safe(saved.url)}"></video>
+        <a class="download" href="${safe(saved.url)}?download=1" download="faceless-forge.${ext}"><i class="fas fa-download"></i> TẢI VIDEO ${ext.toUpperCase()} (${sizeMB} MB)</a>`;
+      $('#render-output').innerHTML = html;
+      $('#video-output').innerHTML = html;
+      notify(`Video đã render xong · ${sizeMB} MB`);
+      loadLibrary();
+    } else {
+      const localUrl = URL.createObjectURL(blob);
+      state.video = { url: localUrl, key: null };
+      progress('render', 100, `Hoàn tất · ${sizeMB} MB · CHẾ ĐỘ LOCAL (chưa lưu cloud)`);
+      const html = `
+        <video controls src="${localUrl}"></video>
+        <a class="download" href="${localUrl}" download="faceless-forge.${ext}"><i class="fas fa-download"></i> TẢI VIDEO ${ext.toUpperCase()} (${sizeMB} MB) · BẢN LOCAL</a>`;
+      $('#render-output').innerHTML = html;
+      $('#video-output').innerHTML = html;
+      notify('Video render xong — xem/tải ngay. Chưa lưu cloud vì thiếu BLOB_READ_WRITE_TOKEN', true);
+    }
   } catch (err) {
     progress('render', 0, 'Dựng video thất bại');
     notify(err.message || 'Dựng video thất bại', true);

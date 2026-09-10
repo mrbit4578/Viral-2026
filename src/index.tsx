@@ -17,6 +17,7 @@ import {
   generateImageBytes,
   generateSpeech,
   putAsset,
+  putAssetSmart,
   uid,
 } from './lib/media.js'
 import { createDatabase } from './lib/db.js'
@@ -269,15 +270,15 @@ app.post('/api/media/image', async (c) => {
   if (!prompt) return c.json(bad('Prompt trống'), 400)
 
   try {
-    const { bytes, contentType } = await generateImageBytes(prompt, {
+    const { bytes, contentType, fallback } = await generateImageBytes(prompt, {
       model: String(body.model || 'flux'),
       width: Number(body.width) || 768,
       height: Number(body.height) || 1344,
       seed: body.seed !== undefined ? Number(body.seed) : undefined,
     })
-    const ext = contentType.includes('png') ? 'png' : 'jpg'
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('svg') ? 'svg' : 'jpg'
     const key = `images/${uid('img_')}.${ext}`
-    const saved = await putAsset(c.env, key, bytes, contentType)
+    const saved = await putAssetSmart(c.env, key, bytes, contentType)
 
     const assetId = uid('as_')
     if (body.blueprint_id) {
@@ -302,7 +303,7 @@ app.post('/api/media/image', async (c) => {
         console.error('save image asset failed', e)
       }
     }
-    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType })
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType, fallback: Boolean(fallback) })
   } catch (e: any) {
     return c.json(bad(`Tạo ảnh thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
   }
@@ -317,9 +318,10 @@ app.post('/api/media/speech', async (c) => {
   if (text.length > 12000) return c.json(bad('Kịch bản quá dài (tối đa 12.000 ký tự)'), 400)
 
   try {
-    const { bytes, chunks, chars } = await generateSpeech(text, String(body.voice || 'vi'))
-    const key = `audio/${uid('tts_')}.mp3`
-    const saved = await putAsset(c.env, key, bytes, 'audio/mpeg')
+    const { bytes, chunks, chars, fallback, missing } = await generateSpeech(text, String(body.voice || 'vi'))
+    const audioType = fallback ? 'audio/wav' : 'audio/mpeg'
+    const key = `audio/${uid('tts_')}.${fallback ? 'wav' : 'mp3'}`
+    const saved = await putAssetSmart(c.env, key, bytes, audioType)
 
     const assetId = uid('as_')
     if (body.blueprint_id) {
@@ -334,10 +336,10 @@ app.post('/api/media/speech', async (c) => {
             'audio',
             Number(body.shot_index) || 0,
             saved.key,
-            'audio/mpeg',
+            audioType,
             saved.size,
             text.slice(0, 500),
-            JSON.stringify({ voice: body.voice || 'vi', chunks, chars }),
+            JSON.stringify({ voice: body.voice || 'vi', chunks, chars, fallback: Boolean(fallback), missing: missing || 0 }),
             now()
           )
           .run()
@@ -345,7 +347,7 @@ app.post('/api/media/speech', async (c) => {
         console.error('save audio asset failed', e)
       }
     }
-    return c.json({ id: assetId, url: saved.url, key, size: saved.size, chunks, chars })
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, chunks, chars, fallback: Boolean(fallback), missing: missing || 0 })
   } catch (e: any) {
     return c.json(bad(`Tạo giọng đọc thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
   }

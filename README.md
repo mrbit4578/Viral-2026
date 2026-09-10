@@ -115,7 +115,9 @@ Khởi động xong, mở `http://localhost:3000` hoặc URL Vercel Dev CLI in r
 - **Entry Function cứng hơn**: `api/[[...path]].js` chấp nhận cả 2 dạng export của bundle CJS (tránh 500 khi interop khác kỳ vọng).
 - **Dịch phụ đề nhanh gấp ~3 lần**: các lô 25 dòng chạy song song (giới hạn 3 lô) thay vì tuần tự — tránh vượt 60 giây của Vercel Hobby với SRT dài.
 - **Nạp tài liệu RAG nhanh ~20 lần**: chunk được ghi bằng multi-row INSERT (1 query / 20 chunk) thay vì 1 query/chunk.
-- **Tạo ảnh tin cậy hơn**: server retry khi dịch vụ ảnh flake (đổi seed, kiểm tra content-type), client render song song tối đa 3 ảnh/lần và bỏ qua shot đã có ảnh.
+- **Tạo ảnh tin cậy hơn**: server retry khi dịch vụ ảnh flake (đổi seed, kiểm tra content-type); khi dịch vụ ảnh AI hoàn toàn ngoại tuyến, server dựng **ảnh SVG placeholder** có cờ `fallback` để dây chuyền chạy tiếp.
+- **Giọng đọc có fallback**: TTS retry từng chunk (có timeout 15s/chunk), fail-fast sau 3 chunk lỗi liên tiếp; khi TTS chết hẳn, server phát **audio WAV tone** cùng thởi lượng lồng tiếng (cờ `fallback`) thay vì 502 → render video vẫn đúng timing. Chunk nào lỗi lẻ được đếm vào `missing` thay vì làm gãy cả kịch bản.
+- **Không còn gãy luồng khi chưa có Blob**: ảnh/audio server-side được trả dạng data-URL khi thiếu `BLOB_READ_WRITE_TOKEN` (tối đa 3MB để an toàn giới hạn response); video render ở browser rơi về chế độ xem/tải local khi upload Blob không khả dụng.
 - **Số liệu đúng kiểu**: các truy vấn tổng hợp ép `::float8`/`::int` vì Neon trả `SUM`/`COUNT` dạng string.
 - **Tránh bản ghi "ma"**: blueprint chỉ gắn `idea_id` khi idea thực sự tồn tại (tránh lỗi FK âm thầm khiến blueprint không được lưu).
 - **UX liền mạch**: nút "Dùng làm ý tưởng →" trong Studio nạp kịch bản vào ô chủ đề của dây chuyền; xoá blueprint đang mở sẽ reset workspace; đã bổ sung favicon và header cache/bảo mật (`X-Frame-Options`, `nosniff`, cache `/static/*`).
