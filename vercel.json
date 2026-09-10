@@ -41,16 +41,20 @@
   ],
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": "/api/[...path]"
+    },
+    {
       "source": "/",
-      "destination": "/api/page?__hono_path=/"
+      "destination": "/api/index?__hono_path=/"
     },
     {
       "source": "/studio",
-      "destination": "/api/page?__hono_path=/studio"
+      "destination": "/api/index?__hono_path=/studio"
     },
     {
       "source": "/((?!api/|static/|favicon\\.svg).*)",
-      "destination": "/api/page?__hono_path=/$1"
+      "destination": "/api/index?__hono_path=/$1"
     }
   ]
 }

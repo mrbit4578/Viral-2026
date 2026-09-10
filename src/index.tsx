@@ -1057,10 +1057,14 @@ export function createBindings(environment: Record<string, string | undefined>):
   const databaseUrl = environment.DATABASE_URL || environment.POSTGRES_URL || environment.NEON_DATABASE_URL
   return {
     DB: createDatabase(databaseUrl),
+    DATABASE_URL: databaseUrl,
     BLOB_READ_WRITE_TOKEN: environment.BLOB_READ_WRITE_TOKEN,
     OPENAI_API_KEY: environment.OPENAI_API_KEY,
     OPENAI_BASE_URL: environment.OPENAI_BASE_URL,
     GEMINI_API_KEY: environment.GEMINI_API_KEY || environment.GOOGLE_API_KEY,
+    EXPLABS_API_KEY: environment.EXPLABS_API_KEY,
+    EXPLABS_BASE_URL: environment.EXPLABS_BASE_URL,
+    EXPLABS_MODEL: environment.EXPLABS_MODEL,
   }
 }
 
