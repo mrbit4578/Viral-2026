@@ -6,6 +6,10 @@ export type Bindings = {
   OPENAI_API_KEY?: string
   OPENAI_BASE_URL?: string
   GEMINI_API_KEY?: string
+  EXPLABS_API_KEY?: string
+  EXPLABS_BASE_URL?: string
+  EXPLABS_MODEL?: string
+  DATABASE_URL?: string
 }
 
 export type Shot = {

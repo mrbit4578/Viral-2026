@@ -20,7 +20,7 @@ import {
   putAssetSmart,
   uid,
 } from './lib/media.js'
-import { createDatabase } from './lib/db.js'
+import { createDatabase, ensureSchema, isMissingTableError } from './lib/db.js'
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { PLATFORM_SPECS, buildDistributionPacks, buildRevenueModel } from './lib/distribution.js'
 import { parseSRT, composeSRT } from './lib/srt.js'
@@ -48,6 +48,22 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('/api/*', cors())
 
+// Tự tạo schema DB một lần mỗi cold start nếu có DATABASE_URL
+let dbInitPromise: Promise<any> | null = null
+app.use('/api/*', async (c, next) => {
+  if (!dbInitPromise && c.env.DATABASE_URL) {
+    dbInitPromise = ensureSchema(c.env.DATABASE_URL).catch((e) => {
+      console.warn('[db] auto init failed:', String((e as any)?.message || e).slice(0, 200))
+    })
+    // Không block request — chạy nền, health sẽ retry nếu cần
+    // Nhưng với /api/health và /api/db/init thì chờ luôn để phản hồi chính xác
+    if (c.req.path === '/api/health' || c.req.path === '/api/db/init') {
+      await dbInitPromise
+    }
+  }
+  await next()
+})
+
 const now = () => new Date().toISOString()
 const bad = (msg: string, status = 400) => ({ error: msg, status })
 const safeJSON = (raw: any) => {
@@ -58,25 +74,54 @@ const safeJSON = (raw: any) => {
   }
 }
 
-// ------------------------------------------------------------------ health
+// ------------------------------------------------------------------ health + db auto-init
 
 app.get('/api/health', async (c) => {
   let db = false
+  let autoCreated = false
   try {
     await c.env.DB.prepare('SELECT 1').first()
     db = true
-  } catch {
-    db = false
+  } catch (e) {
+    // Nếu bảng chưa tồn tại, thử tự tạo schema rồi retry
+    if (isMissingTableError(e) && c.env.DATABASE_URL) {
+      try {
+        const res = await ensureSchema(c.env.DATABASE_URL)
+        if (res.ok) {
+          autoCreated = true
+          await c.env.DB.prepare('SELECT 1').first()
+          db = true
+        }
+      } catch {
+        db = false
+      }
+    } else {
+      db = false
+    }
   }
   const blob = Boolean(c.env.BLOB_READ_WRITE_TOKEN)
   return c.json({
     status: 'ok',
     db,
+    db_auto_created: autoCreated,
     blob,
     llm: hasLLM(c.env),
     engines: { image: true, tts: true, video: 'browser-canvas' },
     time: now(),
   })
+})
+
+// Tự tạo schema DB — không cần chạy migration thủ công
+app.get('/api/db/init', async (c) => {
+  if (!c.env.DATABASE_URL) return c.json(bad('Chưa cấu hình DATABASE_URL', 503), 503)
+  const res = await ensureSchema(c.env.DATABASE_URL)
+  return c.json({ ...res, time: now() }, res.ok ? 200 : 500)
+})
+
+app.post('/api/db/init', async (c) => {
+  if (!c.env.DATABASE_URL) return c.json(bad('Chưa cấu hình DATABASE_URL', 503), 503)
+  const res = await ensureSchema(c.env.DATABASE_URL)
+  return c.json({ ...res, time: now() }, res.ok ? 200 : 500)
 })
 
 app.get('/api/config', (c) =>
@@ -1057,10 +1102,14 @@ export function createBindings(environment: Record<string, string | undefined>):
   const databaseUrl = environment.DATABASE_URL || environment.POSTGRES_URL || environment.NEON_DATABASE_URL
   return {
     DB: createDatabase(databaseUrl),
+    DATABASE_URL: databaseUrl,
     BLOB_READ_WRITE_TOKEN: environment.BLOB_READ_WRITE_TOKEN,
     OPENAI_API_KEY: environment.OPENAI_API_KEY,
     OPENAI_BASE_URL: environment.OPENAI_BASE_URL,
     GEMINI_API_KEY: environment.GEMINI_API_KEY || environment.GOOGLE_API_KEY,
+    EXPLABS_API_KEY: environment.EXPLABS_API_KEY,
+    EXPLABS_BASE_URL: environment.EXPLABS_BASE_URL,
+    EXPLABS_MODEL: environment.EXPLABS_MODEL,
   }
 }
 
