@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Smoke test for Kira AI integration + previous fixes
- * 14 checks — must all pass
+ * Smoke test for Kira AI integration + Kira media integration + previous fixes
+ * 17 checks — must all pass
  */
 import fs from 'fs'
 import path from 'path'
@@ -63,7 +63,7 @@ check('api/[...path].js exists and imports bundle', () => {
 })
 
 // 6 — src/lib/kira.ts exists and has hasKira + KIRA_MODELS + askKira
-check('src/lib/kira.ts exists with Kira integration', () => {
+check('src/lib/kira.ts exists with Kira chat integration', () => {
   return kiraTs.includes('KIRA_MODELS') && kiraTs.includes('hasKira') && kiraTs.includes('askKira') && kiraTs.includes('kiraai.vn')
 })
 
@@ -107,5 +107,20 @@ check('server/function-bundle.cjs exists (build xanh)', () => {
   return bundleExists
 })
 
-console.log(`\n--- Kira smoke: ${passed}/14 passed, ${failed} failed ---`)
+// 15 — Kira media: image generation
+check('src/lib/kira.ts has Kira media image integration', () => {
+  return kiraTs.includes('generateKiraImage') && kiraTs.includes('KIRA_IMAGE_MODELS') && kiraTs.includes('/images/generations') && kiraTs.includes('kira-image')
+})
+
+// 16 — Kira media: speech/TTS generation
+check('src/lib/kira.ts has Kira media speech integration', () => {
+  return kiraTs.includes('generateKiraSpeech') && kiraTs.includes('KIRA_VOICES') && kiraTs.includes('/audio/speech') && kiraTs.includes('kira-female-1')
+})
+
+// 17 — index.tsx has Kira media endpoints and auto fallback for image/speech
+check('src/index.tsx has Kira media endpoints + auto fallback', () => {
+  return indexTs.includes('/api/kira/image') && indexTs.includes('/api/kira/speech') && indexTs.includes('kira_image_models') && indexTs.includes('kira_voices') && indexTs.includes('generateKiraImage') && indexTs.includes('generateKiraSpeech')
+})
+
+console.log(`\n--- Kira smoke: ${passed}/17 passed, ${failed} failed ---`)
 if (failed > 0) process.exit(1)

@@ -41,7 +41,18 @@ import {
   hasGemini,
   startVeoOperation,
 } from './lib/gemini.js'
-import { DEFAULT_KIRA_MODEL, KIRA_MODELS, askKira, hasKira } from './lib/kira.js'
+import {
+  DEFAULT_KIRA_IMAGE_MODEL,
+  DEFAULT_KIRA_MODEL,
+  DEFAULT_KIRA_VOICE,
+  KIRA_IMAGE_MODELS,
+  KIRA_MODELS,
+  KIRA_VOICES,
+  askKira,
+  generateKiraImage,
+  generateKiraSpeech,
+  hasKira,
+} from './lib/kira.js'
 import { renderPage } from './page.js'
 import { renderStudio } from './studio-page.js'
 
@@ -138,6 +149,10 @@ app.get('/api/config', (c) =>
     kira: hasKira(c.env),
     kira_models: Object.keys(KIRA_MODELS),
     default_kira_model: DEFAULT_KIRA_MODEL,
+    kira_image_models: KIRA_IMAGE_MODELS,
+    default_kira_image_model: DEFAULT_KIRA_IMAGE_MODEL,
+    kira_voices: KIRA_VOICES,
+    default_kira_voice: DEFAULT_KIRA_VOICE,
     gemini: hasGemini(c.env),
     gemini_image_models: GEMINI_IMAGE_MODELS,
     veo_models: VEO_MODELS,
@@ -162,10 +177,71 @@ app.post('/api/kira/chat', async (c) => {
 app.get('/api/kira/models', (c) =>
   c.json({
     models: Object.entries(KIRA_MODELS).map(([k, v]) => ({ id: k, name: v })),
+    image_models: KIRA_IMAGE_MODELS,
+    voices: KIRA_VOICES,
     default: DEFAULT_KIRA_MODEL,
+    default_image: DEFAULT_KIRA_IMAGE_MODEL,
+    default_voice: DEFAULT_KIRA_VOICE,
     has_key: hasKira(c.env),
   })
 )
+
+app.post('/api/kira/image', async (c) => {
+  if (!hasKira(c.env)) return c.json(bad('Chưa cấu hình KIRA_API_KEY', 503), 503)
+  const body = await c.req.json().catch(() => ({}))
+  const prompt = String(body.prompt || '').trim()
+  if (!prompt) return c.json(bad('Prompt trống'), 400)
+  try {
+    const img = await generateKiraImage(c.env, prompt, {
+      model: String(body.model || ''),
+      width: Number(body.width) || 768,
+      height: Number(body.height) || 1344,
+    })
+    const key = `images/kira_${uid('img_')}.png`
+    const saved = await putAssetSmart(c.env, key, img.bytes, img.contentType)
+    const assetId = uid('as_')
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at) VALUES (?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(assetId, String(body.blueprint_id), 'image', Number(body.shot_index) || 0, saved.key, img.contentType, saved.size, prompt.slice(0, 800), now())
+          .run()
+      } catch {}
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: img.contentType, provider: 'kira' })
+  } catch (e: any) {
+    return c.json(bad(`Kira Image thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+  }
+})
+
+app.post('/api/kira/speech', async (c) => {
+  if (!hasKira(c.env)) return c.json(bad('Chưa cấu hình KIRA_API_KEY', 503), 503)
+  const body = await c.req.json().catch(() => ({}))
+  const text = String(body.text || '').trim()
+  if (!text) return c.json(bad('Thiếu text'), 400)
+  try {
+    const aud = await generateKiraSpeech(c.env, text, {
+      voice: String(body.voice || ''),
+      model: String(body.model || ''),
+    })
+    const key = `audio/kira_${uid('tts_')}.mp3`
+    const saved = await putAssetSmart(c.env, key, aud.bytes, aud.contentType)
+    const assetId = uid('as_')
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, meta_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(assetId, String(body.blueprint_id), 'audio', 0, saved.key, aud.contentType, saved.size, text.slice(0, 500), JSON.stringify({ voice: body.voice || DEFAULT_KIRA_VOICE, provider: 'kira' }), now())
+          .run()
+      } catch {}
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: aud.contentType, provider: 'kira' })
+  } catch (e: any) {
+    return c.json(bad(`Kira Speech thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+  }
+})
 
 // ------------------------------------------------------------------ BƯỚC 1: Ý tưởng
 
@@ -348,16 +424,15 @@ app.delete('/api/forge/blueprints/:id', async (c) => {
   return c.json({ deleted: true })
 })
 
-// ------------------------------------------------------------------ BƯỚC 4: Ảnh
+// ------------------------------------------------------------------ BƯỚC 4: Ảnh (Kira media integration)
 
 app.post('/api/media/image', async (c) => {
   const body = await c.req.json().catch(() => ({}))
   const prompt = String(body.prompt || '').trim()
   if (!prompt) return c.json(bad('Prompt trống'), 400)
 
-  // provider: 'auto' (mặc định — ưu tiên Gemini nếu có key),
-  //           'gemini' (bắt buộc Gemini, lỗi báo lỗi thật),
-  //           'pollinations' (bỏ qua Gemini).
+  // provider: 'auto' (mặc định — ưu tiên Gemini -> Kira -> Pollinations),
+  //           'gemini', 'kira', 'pollinations', 'placeholder'
   const provider = String(body.provider || 'auto').toLowerCase()
 
   try {
@@ -366,20 +441,113 @@ app.post('/api/media/image', async (c) => {
     let fallback = false
     let usedProvider: string
 
-    if (provider !== 'pollinations' && hasGemini(c.env)) {
+    if (provider === 'kira') {
+      if (!hasKira(c.env)) return c.json(bad('Chưa cấu hình KIRA_API_KEY', 503), 503)
       try {
-        const gem = await generateGeminiImage(c.env, prompt, {
-          model: String(body.gemini_model || ''),
-          aspectRatio: '9:16',
+        const kira = await generateKiraImage(c.env, prompt, {
+          model: String(body.kira_model || body.model || ''),
+          width: Number(body.width) || 768,
+          height: Number(body.height) || 1344,
         })
-        bytes = gem.bytes
-        contentType = gem.contentType
-        usedProvider = 'gemini'
+        bytes = kira.bytes
+        contentType = kira.contentType
+        usedProvider = 'kira'
       } catch (e: any) {
-        if (provider === 'gemini') {
-          return c.json(bad(`Gemini thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+        return c.json(bad(`Kira Image thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+      }
+    } else if (provider === 'gemini') {
+      if (!hasGemini(c.env)) return c.json(bad('Chưa cấu hình GEMINI_API_KEY', 503), 503)
+      const gem = await generateGeminiImage(c.env, prompt, {
+        model: String(body.gemini_model || ''),
+        aspectRatio: '9:16',
+      })
+      bytes = gem.bytes
+      contentType = gem.contentType
+      usedProvider = 'gemini'
+    } else if (provider === 'pollinations') {
+      const pol = await generateImageBytes(prompt, {
+        model: String(body.model || 'flux'),
+        width: Number(body.width) || 768,
+        height: Number(body.height) || 1344,
+        seed: body.seed !== undefined ? Number(body.seed) : undefined,
+      })
+      bytes = pol.bytes
+      contentType = pol.contentType
+      fallback = Boolean(pol.fallback)
+      usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
+    } else {
+      // auto: Gemini -> Kira -> Pollinations -> placeholder
+      if (hasGemini(c.env)) {
+        try {
+          const gem = await generateGeminiImage(c.env, prompt, {
+            model: String(body.gemini_model || ''),
+            aspectRatio: '9:16',
+          })
+          bytes = gem.bytes
+          contentType = gem.contentType
+          usedProvider = 'gemini'
+        } catch (e: any) {
+          console.error('gemini image failed, try kira:', String(e?.message || e).slice(0, 200))
+          if (hasKira(c.env)) {
+            try {
+              const kira = await generateKiraImage(c.env, prompt, {
+                model: String(body.kira_model || ''),
+                width: Number(body.width) || 768,
+                height: Number(body.height) || 1344,
+              })
+              bytes = kira.bytes
+              contentType = kira.contentType
+              usedProvider = 'kira'
+            } catch (e2: any) {
+              console.error('kira image failed, fallback to pollinations:', String(e2?.message || e2).slice(0, 200))
+              const pol = await generateImageBytes(prompt, {
+                model: String(body.model || 'flux'),
+                width: Number(body.width) || 768,
+                height: Number(body.height) || 1344,
+                seed: body.seed !== undefined ? Number(body.seed) : undefined,
+              })
+              bytes = pol.bytes
+              contentType = pol.contentType
+              fallback = Boolean(pol.fallback)
+              usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
+            }
+          } else {
+            const pol = await generateImageBytes(prompt, {
+              model: String(body.model || 'flux'),
+              width: Number(body.width) || 768,
+              height: Number(body.height) || 1344,
+              seed: body.seed !== undefined ? Number(body.seed) : undefined,
+            })
+            bytes = pol.bytes
+            contentType = pol.contentType
+            fallback = Boolean(pol.fallback)
+            usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
+          }
         }
-        console.error('gemini image failed, fallback to pollinations:', String(e?.message || e).slice(0, 200))
+      } else if (hasKira(c.env)) {
+        try {
+          const kira = await generateKiraImage(c.env, prompt, {
+            model: String(body.kira_model || ''),
+            width: Number(body.width) || 768,
+            height: Number(body.height) || 1344,
+          })
+          bytes = kira.bytes
+          contentType = kira.contentType
+          usedProvider = 'kira'
+        } catch (e: any) {
+          console.error('kira image failed, fallback to pollinations:', String(e?.message || e).slice(0, 200))
+          const pol = await generateImageBytes(prompt, {
+            model: String(body.model || 'flux'),
+            width: Number(body.width) || 768,
+            height: Number(body.height) || 1344,
+            seed: body.seed !== undefined ? Number(body.seed) : undefined,
+          })
+          bytes = pol.bytes
+          contentType = pol.contentType
+          fallback = Boolean(pol.fallback)
+          usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
+        }
+      } else {
         const pol = await generateImageBytes(prompt, {
           model: String(body.model || 'flux'),
           width: Number(body.width) || 768,
@@ -391,17 +559,6 @@ app.post('/api/media/image', async (c) => {
         fallback = Boolean(pol.fallback)
         usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
       }
-    } else {
-      const pol = await generateImageBytes(prompt, {
-        model: String(body.model || 'flux'),
-        width: Number(body.width) || 768,
-        height: Number(body.height) || 1344,
-        seed: body.seed !== undefined ? Number(body.seed) : undefined,
-      })
-      bytes = pol.bytes
-      contentType = pol.contentType
-      fallback = Boolean(pol.fallback)
-      usedProvider = pol.fallback ? 'placeholder' : 'pollinations'
     }
 
     const ext = contentType.includes('png') ? 'png' : contentType.includes('svg') ? 'svg' : 'jpg'
@@ -541,7 +698,7 @@ app.post('/api/media/import-audio', async (c) => {
   }
 })
 
-// ------------------------------------------------------------------ BƯỚC 5: Giọng đọc
+// ------------------------------------------------------------------ BƯỚC 5: Giọng đọc (Kira media integration)
 
 app.post('/api/media/speech', async (c) => {
   const body = await c.req.json().catch(() => ({}))
@@ -549,11 +706,75 @@ app.post('/api/media/speech', async (c) => {
   if (!text) return c.json(bad('Nội dung đọc trống'), 400)
   if (text.length > 12000) return c.json(bad('Kịch bản quá dài (tối đa 12.000 ký tự)'), 400)
 
+  const provider = String(body.provider || 'auto').toLowerCase()
+
   try {
-    const { bytes, chunks, chars, fallback, missing } = await generateSpeech(text, String(body.voice || 'vi'))
-    const audioType = fallback ? 'audio/wav' : 'audio/mpeg'
-    const key = `audio/${uid('tts_')}.${fallback ? 'wav' : 'mp3'}`
-    const saved = await putAssetSmart(c.env, key, bytes, audioType)
+    let bytes: Uint8Array | ArrayBuffer
+    let audioType: string
+    let chunks: number
+    let chars: number
+    let fallback = false
+    let missing = 0
+    let usedProvider = 'google'
+
+    if (provider === 'kira') {
+      if (!hasKira(c.env)) return c.json(bad('Chưa cấu hình KIRA_API_KEY', 503), 503)
+      const kira = await generateKiraSpeech(c.env, text, {
+        voice: String(body.voice || body.kira_voice || ''),
+        model: String(body.kira_model || ''),
+      })
+      bytes = kira.bytes
+      audioType = kira.contentType
+      chunks = 1
+      chars = text.length
+      usedProvider = 'kira'
+    } else if (provider === 'google' || provider === 'gtts') {
+      const res = await generateSpeech(text, String(body.voice || 'vi'))
+      bytes = res.bytes
+      audioType = res.fallback ? 'audio/wav' : 'audio/mpeg'
+      chunks = res.chunks
+      chars = res.chars
+      fallback = Boolean(res.fallback)
+      missing = res.missing || 0
+      usedProvider = 'google'
+    } else {
+      // auto: Kira -> Google -> fallback WAV
+      if (hasKira(c.env)) {
+        try {
+          const kira = await generateKiraSpeech(c.env, text, {
+            voice: String(body.voice || body.kira_voice || ''),
+            model: String(body.kira_model || ''),
+          })
+          bytes = kira.bytes
+          audioType = kira.contentType
+          chunks = 1
+          chars = text.length
+          usedProvider = 'kira'
+        } catch (e: any) {
+          console.error('kira speech failed, fallback to google:', String(e?.message || e).slice(0, 200))
+          const res = await generateSpeech(text, String(body.voice || 'vi'))
+          bytes = res.bytes
+          audioType = res.fallback ? 'audio/wav' : 'audio/mpeg'
+          chunks = res.chunks
+          chars = res.chars
+          fallback = Boolean(res.fallback)
+          missing = res.missing || 0
+          usedProvider = 'google'
+        }
+      } else {
+        const res = await generateSpeech(text, String(body.voice || 'vi'))
+        bytes = res.bytes
+        audioType = res.fallback ? 'audio/wav' : 'audio/mpeg'
+        chunks = res.chunks
+        chars = res.chars
+        fallback = Boolean(res.fallback)
+        missing = res.missing || 0
+        usedProvider = 'google'
+      }
+    }
+
+    const key = `audio/${uid('tts_')}.${audioType.includes('wav') ? 'wav' : 'mp3'}`
+    const saved = await putAssetSmart(c.env, key, bytes as any, audioType)
 
     const assetId = uid('as_')
     if (body.blueprint_id) {
@@ -579,7 +800,7 @@ app.post('/api/media/speech', async (c) => {
         console.error('save audio asset failed', e)
       }
     }
-    return c.json({ id: assetId, url: saved.url, key, size: saved.size, chunks, chars, fallback: Boolean(fallback), missing: missing || 0 })
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, chunks, chars, fallback: Boolean(fallback), missing: missing || 0, provider: usedProvider })
   } catch (e: any) {
     return c.json(bad(`Tạo giọng đọc thất bại: ${String(e?.message || e).slice(0, 200)}`, 502), 502)
   }
