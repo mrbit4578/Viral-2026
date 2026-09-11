@@ -79,17 +79,28 @@ export async function ingestDocument(
     .run()
 
   // Chia nhỏ batch để truy vấn Postgres luôn gọn và dễ retry.
-  const stmt = env.DB.prepare(
-    `INSERT INTO rag_chunks (id, doc_id, doc_name, idx, text, tokens) VALUES (?, ?, ?, ?, ?, ?)`,
-  )
+  // Mỗi batch là MỘT multi-row INSERT (thay vì 1 query/chunk như bản cũ):
+  // tài liệu 900k ký tự ~1.100 chunk giảm từ ~1.100 HTTP query xuống ~56.
+  const CHUNK_COLS = 6
   const BATCH = 20
   for (let i = 0; i < chunks.length; i += BATCH) {
     const slice = chunks.slice(i, i + BATCH)
-    await env.DB.batch(
-      slice.map((c, k) =>
-        stmt.bind(`${id}-${i + k}`, id, doc.name, i + k, c, JSON.stringify(tokenize(c))),
-      ),
+    const rowMarks = slice
+      .map(() => `(${Array.from({ length: CHUNK_COLS }, () => '?').join(', ')})`)
+      .join(', ')
+    const values = slice.flatMap((c, k) => [
+      `${id}-${i + k}`,
+      id,
+      doc.name,
+      i + k,
+      c,
+      JSON.stringify(tokenize(c)),
+    ])
+    await env.DB.prepare(
+      `INSERT INTO rag_chunks (id, doc_id, doc_name, idx, text, tokens) VALUES ${rowMarks}`,
     )
+      .bind(...values)
+      .run()
   }
   return doc
 }

@@ -216,12 +216,16 @@ async function ffRun(file, args, inName, outName, onProgress) {
   const ff = await getFFmpeg(onProgress)
   const { fetchFile } = window.FFmpegUtil
   await ff.writeFile(inName, file instanceof Uint8Array ? file : await fetchFile(file))
-  const fullArgs = ['-i', inName, ...args, outName]
-  await ff.exec(fullArgs)
-  const data = await ff.readFile(outName)
-  await ff.deleteFile(inName).catch(() => {})
-  await ff.deleteFile(outName).catch(() => {})
-  return data instanceof Uint8Array ? data : new Uint8Array(data)
+  try {
+    const fullArgs = ['-i', inName, ...args, outName]
+    await ff.exec(fullArgs)
+    const data = await ff.readFile(outName)
+    return data instanceof Uint8Array ? data : new Uint8Array(data)
+  } finally {
+    // Dọn MEMFS kể cả khi exec ném lỗi — tránh phình RAM qua các lần chạy.
+    await ff.deleteFile(inName).catch(() => {})
+    await ff.deleteFile(outName).catch(() => {})
+  }
 }
 
 /** Đọc thời lượng + có video stream không, bằng cách decode nhẹ */
@@ -370,8 +374,10 @@ const state = {
 async function bootstrap() {
   try {
     const [cfg, langs] = await Promise.all([api('/api/config'), api('/api/studio/langs')])
-    state.models = cfg.text_models || []
-    state.defaultModel = cfg.default_model || (state.models[0] && state.models[0].key) || ''
+    // /api/config trả text_models là mảng tên model (string) + default_text_model
+    state.models = Array.isArray(cfg.text_models) ? cfg.text_models.map(String) : []
+    state.defaultModel =
+      String(cfg.default_text_model || cfg.default_model || '') || state.models[0] || ''
     state.langs = langs.langs || []
     state.voices = langs.voices || []
   } catch (e) {
@@ -381,7 +387,10 @@ async function bootstrap() {
 
   // model selects
   const modelHTML = state.models
-    .map((m) => `<option value="${escapeHTML(m.key)}"${m.key === state.defaultModel ? ' selected' : ''}>${escapeHTML(m.label || m.key)}</option>`)
+    .map(
+      (m) =>
+        `<option value="${escapeHTML(m)}"${m === state.defaultModel ? ' selected' : ''}>${escapeHTML(m)}</option>`,
+    )
     .join('')
   ;['srt-model', 'dub-model', 'rag-model', 'rag-script-model'].forEach((id) => {
     const el = $(id)
@@ -856,6 +865,8 @@ async function runDub() {
       const name = `seg_${String(i).padStart(4, '0')}.mp3`
       await ff.writeFile(name, bytes)
       const fitted = await fitSegmentAudio(ff, name, actualDur, slot)
+      // fitSegmentAudio sinh _fit.wav giữ lại, file .mp3 gốc không còn cần → xoá sớm
+      if (fitted !== name) await ff.deleteFile(name).catch(() => {})
       segFiles.push([fitted, Number(translated[i].start) || 0])
 
       if (i % 5 === 0 || i === translated.length - 1) {

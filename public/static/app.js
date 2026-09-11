@@ -122,6 +122,18 @@ async function boot() {
     $('#health-text').textContent = 'Mất kết nối API';
     console.error(err);
   }
+
+  // Studio "Dùng làm ý tưởng →" chuyển kịch bản sang đây qua sessionStorage
+  try {
+    const prefilled = sessionStorage.getItem('forge_topic');
+    if (prefilled) {
+      sessionStorage.removeItem('forge_topic');
+      $('#topic').value = prefilled;
+      notify('Đã nạp kịch bản từ Studio — bấm "Cải tiến ý tưởng" hoặc "Tạo Viral Blueprint"');
+      $('#topic').focus();
+    }
+  } catch { /* sessionStorage bị chặn */ }
+
   loadMetrics();
   loadLibrary();
 }
@@ -291,6 +303,16 @@ function renderBlueprint() {
       <div class="tool-row">
         <button class="button primary" type="button" data-gen-images><i class="fas fa-images"></i> Tạo ảnh cho tất cả shot</button>
         <button class="button ghost" type="button" data-gen-cover><i class="fas fa-star"></i> Chỉ tạo ảnh bìa</button>
+        <select id="image-provider" title="Nguồn tạo ảnh">
+          <option value="auto">Nguồn ảnh: Tự động (Gemini → Kira 3.0 → Pollinations)</option>
+          <option value="gemini">Gemini (Google) — bắt buộc</option>
+          <option value="kira">Kira 3.0 Image (kira-3.0-image) — kiraai.vn</option>
+          <option value="pollinations">Pollinations (miễn phí)</option>
+        </select>
+        <label class="button ghost" style="cursor:pointer" title="Tải ảnh có sẵn lên — gán theo thứ tự shot (dùng được cả khi dịch vụ AI ngoại tuyến)">
+          <i class="fas fa-cloud-arrow-up"></i> Tải ảnh lên
+          <input type="file" id="upload-images" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        </label>
       </div>
       <div class="job" id="image-job">
         <div class="job-line"><span id="image-msg">Đang chuẩn bị…</span><b id="image-pct">0%</b></div>
@@ -304,6 +326,15 @@ function renderBlueprint() {
       <div class="section-title">Bước 05 · Giọng đọc AI <small>GOOGLE NEURAL TTS</small></div>
       <div class="tool-row">
         <button class="button primary" type="button" data-gen-voice><i class="fas fa-microphone-lines"></i> Tạo voice-over</button>
+        <select id="speech-provider" title="Nguồn giọng đọc">
+          <option value="auto">Giọng đọc: Tự động (Kira 3.0 TTS → Google)</option>
+          <option value="kira">Kira 3.0 TTS (Kore, Fenrir, Puck, Charon, Aoede) — kiraai.vn</option>
+          <option value="google">Google TTS</option>
+        </select>
+        <label class="button ghost" style="cursor:pointer" title="Tải voice-over của bạn lên (bỏ qua TTS — dùng được cả khi TTS ngoại tuyến)">
+          <i class="fas fa-cloud-arrow-up"></i> Tải voice có sẵn
+          <input type="file" id="upload-voice" accept="audio/*" hidden>
+        </label>
       </div>
       <div class="job" id="audio-job">
         <div class="job-line"><span id="audio-msg">Đang chuẩn bị…</span><b id="audio-pct">0%</b></div>
@@ -320,6 +351,50 @@ function renderBlueprint() {
         <button class="button primary solid" type="button" data-open-render><i class="fas fa-film"></i> Dựng video 9:16</button>
       </div>
       <div id="video-output" class="render-result"></div>
+
+      ${state.config?.gemini ? `
+      <div class="ai-video-block" style="margin-top:16px;border-top:1px dashed rgba(102,245,205,.25);padding-top:14px">
+        <div class="section-title">Phương án 2 · Video AI bằng Google Veo <small>VIDEO THẬT · CÓ AUDIO · TỐN QUOTA (CẦN BILLING)</small></div>
+        <label style="display:block;margin-bottom:10px">Prompt video (từ concept — có thể chỉnh)
+          <textarea id="veo-prompt" rows="3" spellcheck="false">${safe(bp.concept)}. Cinematic vertical video, smooth camera movement, high detail.</textarea>
+        </label>
+        <label style="display:flex;gap:8px;align-items:center;margin:-4px 0 12px;font-size:13px;color:#9fb0ad;cursor:pointer">
+          <input type="checkbox" id="veo-voice" checked style="accent-color:#66f5cd">
+          <span>🎙️ <b style="color:#e8f4f0">Voice đọc theo Veo</b> — Veo tự tạo audio tiếng Việt đọc đoạn mở đầu kịch bản (clip ~8s; không cần bước 05)</span>
+        </label>
+        <div class="tool-row">
+          <button class="button primary" type="button" data-gen-ai-video><i class="fas fa-clapperboard"></i> Tạo video bằng Veo AI</button>
+          <select id="veo-model" title="Model Veo">
+            ${(state.config.veo_models || []).map((m) => `<option value="${safe(m)}">${safe(m)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="job" id="aivideo-job">
+          <div class="job-line"><span id="aivideo-msg">Sẵn sàng</span><b id="aivideo-pct">0%</b></div>
+          <div class="bar"><i id="aivideo-bar"></i></div>
+        </div>
+      </div>` : ''}
+      <div class="ai-video-block" style="margin-top:16px;border-top:1px dashed rgba(102,245,205,.25);padding-top:14px">
+        <div class="section-title">Phương án 3 · Video AI bằng Kira 3.0 Video <small>VIDEO AI · KIRA.AI.VN · CẦN KIRA_API_KEY</small></div>
+        <label style="display:block;margin-bottom:10px">Prompt video Kira (từ concept — có thể chỉnh)
+          <textarea id="kira-video-prompt" rows="3" spellcheck="false">${safe(bp.concept)}. Cinematic vertical video, smooth camera movement, high detail, 9:16 aspect ratio.</textarea>
+        </label>
+        <div class="tool-row">
+          <button class="button primary" type="button" data-gen-kira-video><i class="fas fa-video"></i> Tạo video bằng Kira AI</button>
+          <select id="kira-video-model" title="Model Kira Video">
+            <option value="kira-3.0-video">kira-3.0-video</option>
+            <option value="kira-3.0-video-flash">kira-3.0-video-flash</option>
+          </select>
+          <select id="kira-video-ratio" title="Tỷ lệ video">
+            <option value="9:16">9:16 (Vertical)</option>
+            <option value="16:9">16:9 (Horizontal)</option>
+            <option value="1:1">1:1 (Square)</option>
+          </select>
+        </div>
+        <div class="job" id="kira-video-job">
+          <div class="job-line"><span id="kira-video-msg">Sẵn sàng</span><b id="kira-video-pct">0%</b></div>
+          <div class="bar"><i id="kira-video-bar"></i></div>
+        </div>
+      </div>
     </section>
 
     <section class="section-card">
@@ -399,7 +474,8 @@ function renderImageStrip() {
   strip.innerHTML = shots.map((shot, i) => {
     const img = state.images[i];
     if (img) {
-      return `<div class="asset-cell"><img src="${safe(img.url)}" alt="Shot ${i + 1}" loading="lazy" /><span>${i + 1}</span></div>`;
+      const fb = img.fallback ? ' title="Ảnh dự phòng (dịch vụ ảnh AI ngoại tuyến)" style="outline:2px dashed rgba(255,211,107,.55);outline-offset:-2px"' : '';
+      return `<div class="asset-cell"${fb}><img src="${safe(img.url)}" alt="Shot ${i + 1}" loading="lazy" /><span>${i + 1}</span></div>`;
     }
     return `<div class="asset-cell loading"><span>${i + 1}</span>chưa có</div>`;
   }).join('');
@@ -415,9 +491,12 @@ async function generateShotImage(index) {
       shot_index: index,
       width: 768,
       height: 1344,
+      aspect_ratio: '9:16',
+      provider: $('#image-provider')?.value || 'auto',
+      kira_model: 'kira-3.0-image',
     }),
   });
-  state.images[index] = { url: data.url, key: data.key };
+  state.images[index] = { url: data.url, key: data.key, fallback: Boolean(data.fallback), provider: data.provider };
   renderImageStrip();
   return data;
 }
@@ -425,23 +504,52 @@ async function generateShotImage(index) {
 async function generateAllImages(button, onlyCover = false) {
   const shots = state.blueprint?.shots || [];
   if (!shots.length) return notify('Chưa có shot list', true);
-  const targets = onlyCover ? [0] : shots.map((_, i) => i);
+  const targets = onlyCover ? [0] : shots.map((_, i) => i).filter((i) => !state.images[i]);
+  if (!targets.length) {
+    progress('image', 100, 'Tất cả shot đã có ảnh');
+    return notify('Tất cả shot đã có ảnh — dùng lại ảnh hiện tại');
+  }
   const restore = busy(button, 'Đang tạo ảnh…');
   let done = 0;
   let failed = 0;
+  let usedFallback = 0;
   try {
-    for (const index of targets) {
-      progress('image', (done / targets.length) * 100, `Đang tạo ảnh shot ${index + 1}/${targets.length}…`);
-      try {
-        await generateShotImage(index);
-      } catch (err) {
-        failed++;
-        console.error('image failed', index, err);
+    // Chạy song song tối đa 3 request — nhanh gấp ~3 lần mà vẫn tránh rate limit.
+    const CONCURRENCY = 3;
+    const queue = [...targets];
+    const worker = async () => {
+      while (queue.length) {
+        const index = queue.shift();
+        if (index === undefined) return;
+        try {
+          const result = await generateShotImage(index);
+          if (result.fallback) usedFallback++;
+        } catch (err) {
+          failed++;
+          console.error('image failed', index, err);
+        }
+        done++;
+        progress(
+          'image',
+          (done / targets.length) * 100,
+          `Đang tạo ảnh… ${done}/${targets.length} shot`,
+        );
       }
-      done++;
-    }
-    progress('image', 100, failed ? `Xong — ${done - failed} ảnh, ${failed} lỗi` : `Đã tạo ${done} ảnh 9:16`);
-    notify(failed ? `Tạo được ${done - failed}/${done} ảnh` : `Đã tạo ${done} ảnh`, failed > 0);
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker));
+    const okCount = done - failed;
+    progress(
+      'image',
+      100,
+      failed
+        ? `Xong — ${okCount} ảnh, ${failed} lỗi`
+        : usedFallback
+          ? `Xong — ${usedFallback}/${okCount} ảnh dùng placeholder (dịch vụ ảnh AI offline)`
+          : `Đã tạo ${okCount} ảnh 9:16`,
+    );
+    if (failed) notify(`Tạo được ${okCount}/${done} ảnh`, true);
+    else if (usedFallback) notify(`Đã tạo ${okCount} ảnh — ${usedFallback} ảnh là placeholder vì dịch vụ ảnh AI ngoại tuyến`, true);
+    else notify(`Đã tạo ${okCount} ảnh`);
   } finally { restore(); }
 }
 
@@ -454,14 +562,22 @@ async function generateVoice(button) {
     progress('audio', 25, 'Đang tổng hợp giọng đọc…');
     const data = await api('/api/media/speech', {
       method: 'POST',
-      body: JSON.stringify({ text: script, voice: $('#voice').value, blueprint_id: state.blueprintId }),
+      body: JSON.stringify({ text: script, voice: $('#voice').value, blueprint_id: state.blueprintId, provider: $('#speech-provider')?.value || 'auto', kira_voice: 'Kore', kira_model: 'kira-3.0-flash-tts' }),
     });
     state.audio = { url: data.url, key: data.key };
-    progress('audio', 100, `Đã tạo giọng đọc · ${data.chunks} đoạn · ${nf.format(data.chars)} ký tự`);
+    const note = data.fallback
+      ? ' · ÂM TONE DỰ PHÒNG (dịch vụ TTS đang ngoại tuyến)'
+      : data.missing
+        ? ` · thiếu ${data.missing}/${data.chunks} đoạn`
+        : '';
+    progress('audio', 100, `Đã tạo audio · ${data.chunks} đoạn · ${nf.format(data.chars)} ký tự${note}`);
+    const ext = data.fallback ? 'WAV (dự phòng)' : 'MP3';
     $('#audio-output').innerHTML = `
       <audio controls src="${safe(data.url)}"></audio>
-      <a class="download" href="${safe(data.url)}?download=1" download><i class="fas fa-download"></i> TẢI MP3</a>`;
-    notify('Voice-over đã sẵn sàng');
+      <a class="download" href="${safe(data.url)}" download="voice-over.${data.fallback ? 'wav' : 'mp3'}"><i class="fas fa-download"></i> TẢI ${ext}</a>`;
+    if (data.fallback) notify('Dịch vụ TTS ngoại tuyến — dùng âm tone dự phòng, timing vẫn đúng', true);
+    else if (data.missing) notify(`Voice-over sẵn sàng nhưng thiếu ${data.missing} đoạn`, true);
+    else notify('Voice-over đã sẵn sàng');
   } catch (err) {
     progress('audio', 0, 'Tạo giọng thất bại');
     notify(err.message, true);
@@ -712,32 +828,147 @@ async function renderVideo() {
     if (blob.size < 2048) throw new Error('Video rỗng — thử lại');
 
     const ext = type.includes('mp4') ? 'mp4' : 'webm';
-    const upload = await uploadToVercelBlob(
-      blob,
-      `videos/vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`,
-      { blueprintId: state.blueprintId, kind: 'video' },
-    );
-    const saved = await api(`/api/media/video/${encodeURIComponent(state.blueprintId)}`, {
-      method: 'POST',
-      body: JSON.stringify({ url: upload.url, size: blob.size, content_type: type }),
-    });
+    const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
 
-    state.video = { url: saved.url, key: saved.key };
-    const sizeMB = (saved.size / 1024 / 1024).toFixed(2);
+    // Cố gắng upload Blob; nếu chưa cấu hình BLOB_READ_WRITE_TOKEN (hoặc Blob lỗi)
+    // thì rơi về chế độ local: video hiển thị/tải về ngay, pipeline không gãy.
+    let saved = null;
+    try {
+      const upload = await uploadToVercelBlob(
+        blob,
+        `videos/vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`,
+        { blueprintId: state.blueprintId, kind: 'video' },
+      );
+      saved = await api(`/api/media/video/${encodeURIComponent(state.blueprintId)}`, {
+        method: 'POST',
+        body: JSON.stringify({ url: upload.url, size: blob.size, content_type: type }),
+      });
+    } catch (uploadErr) {
+      console.warn('Blob upload không khả dụng, dùng chế độ local:', uploadErr);
+    }
 
-    progress('render', 100, `Hoàn tất · ${sizeMB} MB · ${ext.toUpperCase()}`);
-    const html = `
-      <video controls src="${safe(saved.url)}"></video>
-      <a class="download" href="${safe(saved.url)}?download=1" download="faceless-forge.${ext}"><i class="fas fa-download"></i> TẢI VIDEO ${ext.toUpperCase()} (${sizeMB} MB)</a>`;
-    $('#render-output').innerHTML = html;
-    $('#video-output').innerHTML = html;
-    notify(`Video đã render xong · ${sizeMB} MB`);
-    loadLibrary();
+    if (saved) {
+      state.video = { url: saved.url, key: saved.key };
+      progress('render', 100, `Hoàn tất · ${sizeMB} MB · ${ext.toUpperCase()}`);
+      const html = `
+        <video controls src="${safe(saved.url)}"></video>
+        <a class="download" href="${safe(saved.url)}?download=1" download="faceless-forge.${ext}"><i class="fas fa-download"></i> TẢI VIDEO ${ext.toUpperCase()} (${sizeMB} MB)</a>`;
+      $('#render-output').innerHTML = html;
+      $('#video-output').innerHTML = html;
+      notify(`Video đã render xong · ${sizeMB} MB`);
+      loadLibrary();
+    } else {
+      const localUrl = URL.createObjectURL(blob);
+      state.video = { url: localUrl, key: null };
+      progress('render', 100, `Hoàn tất · ${sizeMB} MB · CHẾ ĐỘ LOCAL (chưa lưu cloud)`);
+      const html = `
+        <video controls src="${localUrl}"></video>
+        <a class="download" href="${localUrl}" download="faceless-forge.${ext}"><i class="fas fa-download"></i> TẢI VIDEO ${ext.toUpperCase()} (${sizeMB} MB) · BẢN LOCAL</a>`;
+      $('#render-output').innerHTML = html;
+      $('#video-output').innerHTML = html;
+      notify('Video render xong — xem/tải ngay. Chưa lưu cloud vì thiếu BLOB_READ_WRITE_TOKEN', true);
+    }
   } catch (err) {
     progress('render', 0, 'Dựng video thất bại');
     notify(err.message || 'Dựng video thất bại', true);
     console.error(err);
   }
+}
+
+/* ============================== BƯỚC 6b: video AI bằng Veo ============================== */
+async function genAiVideo(button) {
+  const bp = state.blueprint;
+  if (!bp) return notify('Chưa có blueprint', true);
+  const prompt = ($('#veo-prompt')?.value || bp.concept || '').trim();
+  if (prompt.length < 8) return notify('Prompt video quá ngắn (tối thiểu 8 ký tự)', true);
+
+  const wantVoice = $('#veo-voice') ? $('#veo-voice').checked : true;
+  const voiceover = wantVoice ? String(bp.script || '').trim() : '';
+
+  const restore = busy(button, 'Đang gửi Veo…');
+  try {
+    progress('aivideo', 4, wantVoice ? 'Đang khởi động Veo (kèm giọng đọc)…' : 'Đang khởi động Veo…');
+    const start = await api('/api/media/ai-video', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, model: $('#veo-model')?.value || '', blueprint_id: state.blueprintId, voiceover }),
+    });
+    const name = start.operation;
+    if (!name) throw new Error('Veo không trả về operation');
+
+    // Veo mất ~1–3 phút: poll mỗi 7 giây, tối đa 8 phút.
+    const t0 = Date.now();
+    const MAX_MS = 8 * 60 * 1000;
+    const POLL_MS = 7000;
+    let final = null;
+    while (Date.now() - t0 < MAX_MS) {
+      await new Promise((r) => setTimeout(r, POLL_MS));
+      const st = await api(
+        `/api/media/ai-video/status?name=${encodeURIComponent(name)}&blueprint_id=${encodeURIComponent(state.blueprintId || '')}`,
+      );
+      if (st.done) { final = st; break; }
+      const pct = Math.min(92, 6 + ((Date.now() - t0) / MAX_MS) * 86);
+      progress('aivideo', pct, 'Veo đang tạo video (thường 1–3 phút)…');
+    }
+    if (!final) throw new Error('Veo mất quá nhiều thởi gian — operation vẫn chạy, hãy thử lại sau');
+    if (final.error) throw new Error(`Veo báo lỗi: ${final.error}`);
+    if (!final.url) throw new Error('Không nhận được URL video');
+
+    state.video = { url: final.url, key: final.key || null };
+    const warn = final.expires_source ? ' · URI Google tạm thởi — hãy tải về sớm' : '';
+    progress('aivideo', 100, `Veo hoàn tất${warn}`);
+    const html = `
+      <video controls src="${safe(final.url)}"></video>
+      <a class="download" href="${safe(final.url)}" download="veo-ai.mp4"><i class="fas fa-download"></i> TẢI VIDEO VEO${warn}</a>`;
+    $('#video-output').innerHTML = html;
+    notify(`Veo đã tạo video xong${warn}`, Boolean(final.expires_source));
+    loadLibrary();
+  } catch (err) {
+    progress('aivideo', 0, 'Veo thất bại');
+    notify(err.message, true);
+  } finally { restore(); }
+}
+
+/* ============================== BƯỚC 6c: video AI bằng Kira ============================== */
+async function genKiraVideo(button) {
+  const bp = state.blueprint;
+  if (!bp) return notify('Chưa có blueprint', true);
+  const prompt = ($('#kira-video-prompt')?.value || bp.concept || '').trim();
+  if (prompt.length < 8) return notify('Prompt video quá ngắn', true);
+  const restore = busy(button, 'Đang gửi Kira Video…');
+  try {
+    progress('kira-video', 4, 'Đang khởi động Kira Video…');
+    const start = await api('/api/kira/video', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, model: $('#kira-video-model')?.value || 'kira-3.0-video', aspect_ratio: $('#kira-video-ratio')?.value || '9:16', duration_seconds: 6, blueprint_id: state.blueprintId }),
+    });
+    const opId = start.operationId || start.operation;
+    if (!opId) throw new Error('Kira Video không trả về operation id');
+    const t0 = Date.now();
+    const MAX_MS = 8 * 60 * 1000;
+    const POLL_MS = 7000;
+    let final = null;
+    while (Date.now() - t0 < MAX_MS) {
+      await new Promise((r) => setTimeout(r, POLL_MS));
+      const st = await api(`/api/kira/video/status?id=${encodeURIComponent(opId)}&blueprint_id=${encodeURIComponent(state.blueprintId || '')}`);
+      if (st.done) { final = st; break; }
+      const pct = Math.min(92, 6 + ((Date.now() - t0) / MAX_MS) * 86);
+      progress('kira-video', pct, 'Kira Video đang tạo (thường 1–3 phút)…');
+    }
+    if (!final) throw new Error('Kira Video quá thời gian');
+    if (final.error) throw new Error('Kira Video lỗi: ' + final.error);
+    if (!final.url) throw new Error('Không nhận được URL video Kira');
+    state.video = { url: final.url, key: final.key || null };
+    progress('kira-video', 100, 'Kira Video hoàn tất');
+    const html = `
+      <video controls src="${safe(final.url)}"></video>
+      <a class="download" href="${safe(final.url)}" download="kira-video.mp4"><i class="fas fa-download"></i> TẢI VIDEO KIRA</a>`;
+    $('#video-output').innerHTML = html;
+    notify('Kira Video đã tạo xong');
+    loadLibrary();
+  } catch (err) {
+    progress('kira-video', 0, 'Kira Video thất bại');
+    notify(err.message, true);
+  } finally { restore(); }
 }
 
 /* ============================== BƯỚC 7: gói phân phối ============================== */
@@ -832,7 +1063,73 @@ $('#blueprint').addEventListener('click', (event) => {
   if (target.hasAttribute('data-gen-cover')) return generateAllImages(target, true);
   if (target.hasAttribute('data-gen-voice')) return generateVoice(target);
   if (target.hasAttribute('data-open-render')) return renderVideo();
+  if (target.hasAttribute('data-gen-ai-video')) return genAiVideo(target);
+  if (target.hasAttribute('data-gen-kira-video')) return genKiraVideo(target);
   if (target.hasAttribute('data-build-packs')) return buildPacks(target);
+});
+
+/* ============================== Tải file có sẵn (ảnh / voice) ============================== */
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Đọc file thất bại'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadImages(fileList) {
+  const shots = state.blueprint?.shots || [];
+  if (!shots.length) return notify('Chưa có shot list — hãy tạo blueprint trước', true);
+  const files = Array.from(fileList || []).slice(0, shots.length);
+  if (!files.length) return;
+  progress('image', 8, `Đang tải lên ${files.length} ảnh…`);
+  let done = 0;
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const dataUrl = await fileToDataUrl(files[i]);
+      const res = await api('/api/media/import-image', {
+        method: 'POST',
+        body: JSON.stringify({ data: dataUrl, blueprint_id: state.blueprintId, shot_index: i, prompt: files[i].name || 'user upload' }),
+      });
+      state.images[i] = { url: res.url, key: res.key, fallback: false, provider: 'upload' };
+      done += 1;
+      progress('image', Math.round((done / files.length) * 100), `Đã tải lên ${done}/${files.length} ảnh`);
+      renderImageStrip();
+    }
+    notify(`Đã gắn ${done} ảnh tải lên vào ${done} shot đầu — Bước 06 dùng ngay được`);
+  } catch (err) {
+    notify(`Tải ảnh lên thất bại: ${err.message}`, true);
+    renderImageStrip();
+  }
+}
+
+async function uploadVoice(file) {
+  if (!file) return;
+  try {
+    progress('audio', 15, 'Đang tải voice lên…');
+    const dataUrl = await fileToDataUrl(file);
+    const res = await api('/api/media/import-audio', {
+      method: 'POST',
+      body: JSON.stringify({ data: dataUrl, blueprint_id: state.blueprintId }),
+    });
+    state.audio = { url: res.url, key: res.key };
+    progress('audio', 100, `Đã gắn voice tải lên · ${nf.format(res.size)} bytes`);
+    $('#audio-output').innerHTML = `
+      <audio controls src="${safe(res.url)}"></audio>
+      <a class="download" href="${safe(res.url)}" download="voice-over-upload"><i class="fas fa-download"></i> TẢI AUDIO</a>`;
+    notify('Voice-over của bạn đã sẵn sàng cho bước dựng video');
+  } catch (err) {
+    progress('audio', 0, 'Tải voice thất bại');
+    notify(`Tải voice thất bại: ${err.message}`, true);
+  }
+}
+
+document.addEventListener('change', (event) => {
+  const el = event.target;
+  if (!(el instanceof HTMLInputElement)) return;
+  if (el.id === 'upload-images') { uploadImages(el.files); el.value = ''; }
+  if (el.id === 'upload-voice') { uploadVoice(el.files?.[0]); el.value = ''; }
 });
 
 /* ============================== BƯỚC 8: thu nhập ============================== */
@@ -949,6 +1246,7 @@ async function openBlueprint(id) {
     const data = await api(`/api/forge/blueprints/${encodeURIComponent(id)}`);
     state.blueprintId = data.id;
     state.blueprint = data.blueprint;
+    state.ideaId = null;
     state.images = {};
     state.audio = null;
     state.video = null;
@@ -982,16 +1280,59 @@ $('#library-list').addEventListener('click', async (event) => {
 
   if (loadBtn) {
     const restore = busy(loadBtn, '…');
-    await openBlueprint(loadBtn.dataset.loadBp);
-    restore();
+    try {
+      const data = await api(`/api/forge/blueprints/${encodeURIComponent(id)}`);
+      state.blueprintId = data.id;
+      state.blueprint = data.blueprint;
+      state.ideaId = null;
+      state.images = {};
+      state.audio = null;
+      state.video = null;
+      state.packs = [];
+      (data.assets || []).forEach((a) => {
+        if (a.kind === 'image') state.images[a.shot_index || 0] = { url: a.url, key: a.r2_key };
+        if (a.kind === 'audio') state.audio = { url: a.url, key: a.r2_key };
+        if (a.kind === 'video') state.video = { url: a.url, key: a.r2_key };
+      });
+      const srtRes = await api('/api/forge/srt', { method: 'POST', body: JSON.stringify({ shots: state.blueprint.shots }) });
+      state.srt = srtRes.srt;
+      renderBlueprint();
+      if (state.audio) {
+        $('#audio-output').innerHTML = `<audio controls src="${safe(state.audio.url)}"></audio>
+          <a class="download" href="${safe(state.audio.url)}?download=1" download><i class="fas fa-download"></i> TẢI MP3</a>`;
+        progress('audio', 100, 'Đã có giọng đọc từ trước');
+      }
+      if (state.video) {
+        $('#video-output').innerHTML = `<video controls src="${safe(state.video.url)}"></video>
+          <a class="download" href="${safe(state.video.url)}?download=1" download><i class="fas fa-download"></i> TẢI VIDEO</a>`;
+      }
+      notify('Đã mở lại blueprint');
+    } catch (err) {
+      notify(err.message, true);
+    } finally { restore(); }
     return;
   }
 
   if (delBtn) {
     if (!confirm('Xoá blueprint này và toàn bộ media của nó?')) return;
     try {
-      await api(`/api/forge/blueprints/${encodeURIComponent(delBtn.dataset.delBp)}`, { method: 'DELETE' });
+      const deletedId = delBtn.dataset.delBp;
+      await api(`/api/forge/blueprints/${encodeURIComponent(deletedId)}`, { method: 'DELETE' });
       notify('Đã xoá');
+      // Nếu xoá chính blueprint đang mở → reset workspace về trạng thái ban đầu
+      if (state.blueprintId === deletedId) {
+        state.blueprintId = null;
+        state.blueprint = null;
+        state.ideaId = null;
+        state.images = {};
+        state.audio = null;
+        state.video = null;
+        state.packs = [];
+        $('#blueprint').classList.add('hidden');
+        $('#refine-panel').classList.add('hidden');
+        $('#empty-state').classList.remove('hidden');
+        setActiveStep('step-1');
+      }
       loadLibrary();
       loadMetrics();
     } catch (err) {

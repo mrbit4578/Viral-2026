@@ -5,6 +5,9 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
@@ -29,6 +32,25 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// node_modules/is-node-process/lib/index.mjs
+function isNodeProcess() {
+  if (typeof navigator !== "undefined" && navigator.product === "ReactNative") {
+    return true;
+  }
+  if (typeof process !== "undefined") {
+    const type = process.type;
+    if (type === "renderer" || type === "worker") {
+      return false;
+    }
+    return !!(process.versions && process.versions.node);
+  }
+  return false;
+}
+var init_lib = __esm({
+  "node_modules/is-node-process/lib/index.mjs"() {
+  }
+});
 
 // node_modules/is-buffer/index.js
 var require_is_buffer = __commonJS({
@@ -23091,19 +23113,19 @@ var require_fetch_jwks = __commonJS({
     var errors_js_1 = require_errors4();
     var buffer_utils_js_1 = require_buffer_utils();
     var fetchJwks = async (url, timeout, options) => {
-      let get;
+      let get2;
       switch (url.protocol) {
         case "https:":
-          get = https.get;
+          get2 = https.get;
           break;
         case "http:":
-          get = http.get;
+          get2 = http.get;
           break;
         default:
           throw new TypeError("Unsupported URL protocol.");
       }
       const { agent, headers } = options;
-      const req = get(url.href, {
+      const req = get2(url.href, {
         agent,
         timeout,
         headers
@@ -24106,7 +24128,7 @@ var require_lib4 = __commonJS({
   "node_modules/async-retry/lib/index.js"(exports2, module2) {
     var retrier = require_retry2();
     function retry2(fn, opts) {
-      function run(resolve, reject) {
+      function run2(resolve, reject) {
         var options = opts || {};
         var op;
         if (!("randomize" in options)) {
@@ -24141,7 +24163,7 @@ var require_lib4 = __commonJS({
         }
         op.attempt(runAttempt);
       }
-      return new Promise(run);
+      return new Promise(run2);
     }
     module2.exports = retry2;
   }
@@ -28666,8 +28688,8 @@ var require_util3 = __commonJS({
       }
       return values;
     }
-    function getDecodeSplit(name, list) {
-      const value = list.get(name, true);
+    function getDecodeSplit(name, list2) {
+      const value = list2.get(name, true);
       if (value === null) {
         return null;
       }
@@ -29880,7 +29902,7 @@ var require_client_h1 = __commonJS({
           util.destroy(this.socket, new HeadersOverflowError());
         }
       }
-      onUpgrade(head) {
+      onUpgrade(head2) {
         const { upgrade, client, socket, headers, statusCode } = this;
         assert(upgrade);
         assert(client[kSocket] === socket);
@@ -29895,7 +29917,7 @@ var require_client_h1 = __commonJS({
         this.shouldKeepAlive = null;
         this.headers = [];
         this.headersSize = 0;
-        socket.unshift(head);
+        socket.unshift(head2);
         socket[kParser].destroy();
         socket[kParser] = null;
         socket[kClient] = null;
@@ -36014,9 +36036,9 @@ var require_headers = __commonJS({
       // https://fetch.spec.whatwg.org/#dom-headers-getsetcookie
       getSetCookie() {
         webidl.brandCheck(this, _Headers);
-        const list = this.#headersList.cookies;
-        if (list) {
-          return [...list];
+        const list2 = this.#headersList.cookies;
+        if (list2) {
+          return [...list2];
         }
         return [];
       }
@@ -36056,8 +36078,8 @@ var require_headers = __commonJS({
       static getHeadersList(o) {
         return o.#headersList;
       }
-      static setHeadersList(o, list) {
-        o.#headersList = list;
+      static setHeadersList(o, list2) {
+        o.#headersList = list2;
       }
     };
     var { getHeadersGuard, setHeadersGuard, getHeadersList, setHeadersList } = Headers2;
@@ -37025,13 +37047,13 @@ var require_request2 = __commonJS({
         if (this.signal.aborted) {
           ac.abort(this.signal.reason);
         } else {
-          let list = dependentControllerMap.get(this.signal);
-          if (list === void 0) {
-            list = /* @__PURE__ */ new Set();
-            dependentControllerMap.set(this.signal, list);
+          let list2 = dependentControllerMap.get(this.signal);
+          if (list2 === void 0) {
+            list2 = /* @__PURE__ */ new Set();
+            dependentControllerMap.set(this.signal, list2);
           }
           const acRef = new WeakRef(ac);
-          list.add(acRef);
+          list2.add(acRef);
           util.addAbortListener(
             ac.signal,
             buildAbort(acRef)
@@ -42737,6 +42759,2565 @@ var require_throttleit = __commonJS({
   }
 });
 
+// node_modules/@vercel/blob/dist/chunk-YYMLUMXS.js
+async function toReadableStream(value) {
+  if (value instanceof ReadableStream) {
+    return value;
+  }
+  if (value instanceof Blob) {
+    return value.stream();
+  }
+  if (isNodeJsReadableStream(value)) {
+    return import_stream.Readable.toWeb(value);
+  }
+  let streamValue;
+  if (value instanceof ArrayBuffer) {
+    streamValue = new Uint8Array(value);
+  } else if (isNodeJsBuffer(value)) {
+    streamValue = value;
+  } else {
+    streamValue = stringToUint8Array(value);
+  }
+  if (await supportsNewBlobFromArrayBuffer) {
+    return new Blob([streamValue]).stream();
+  }
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(streamValue);
+      controller.close();
+    }
+  });
+}
+function isNodeJsReadableStream(value) {
+  return typeof value === "object" && typeof value.pipe === "function" && value.readable && typeof value._read === "function" && // @ts-expect-error _readableState does exists on Readable
+  typeof value._readableState === "object";
+}
+function stringToUint8Array(s) {
+  const enc = new TextEncoder();
+  return enc.encode(s);
+}
+function isNodeJsBuffer(value) {
+  return (0, import_is_buffer.default)(value);
+}
+async function getVercelOidcToken2() {
+  try {
+    const token = (await (0, import_oidc.getVercelOidcToken)()).trim();
+    return token === "" ? void 0 : token;
+  } catch {
+    return void 0;
+  }
+}
+function bytes(val) {
+  if (typeof val === "number" && !Number.isNaN(val)) {
+    return val;
+  }
+  if (typeof val !== "string") {
+    return null;
+  }
+  const results = parseRegExp.exec(val);
+  let floatValue;
+  let unit = "b";
+  if (!results) {
+    floatValue = parseInt(val, 10);
+  } else {
+    const [, res, , , unitMatch] = results;
+    if (!res) {
+      return null;
+    }
+    floatValue = parseFloat(res);
+    if (unitMatch) {
+      unit = unitMatch.toLowerCase();
+    }
+  }
+  if (Number.isNaN(floatValue)) {
+    return null;
+  }
+  return Math.floor(map[unit] * floatValue);
+}
+function readEnv(name) {
+  try {
+    const value = process.env[name];
+    return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function parseStoreIdFromReadWriteToken(token) {
+  const [, , , storeId = ""] = token.split("_");
+  return storeId;
+}
+function base64UrlDecodeDelegationSegment(segment) {
+  let base64 = segment.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = 4 - base64.length % 4;
+  if (padding !== 4) {
+    base64 += "=".repeat(padding);
+  }
+  if (typeof atob === "function") {
+    return atob(base64);
+  }
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(base64, "base64").toString("utf8");
+  }
+  throw new BlobError("Cannot decode base64: no atob or Buffer available.");
+}
+function parseStoreIdFromDelegationToken(delegationToken) {
+  const dot = delegationToken.indexOf(".");
+  if (dot < 0) {
+    throw new BlobError("Invalid delegation token format.");
+  }
+  const payloadSeg = delegationToken.slice(0, dot);
+  let parsed;
+  try {
+    parsed = JSON.parse(base64UrlDecodeDelegationSegment(payloadSeg));
+  } catch {
+    throw new BlobError("Invalid delegation token payload.");
+  }
+  if (!parsed.storeId || typeof parsed.storeId !== "string") {
+    throw new BlobError("Delegation token payload is missing `storeId`.");
+  }
+  return normalizeStoreId(parsed.storeId);
+}
+function parseStoreIdFromPresignedUrl(presignedUrlPayload) {
+  const delegation = presignedUrlPayload.delegationToken;
+  return parseStoreIdFromDelegationToken(delegation);
+}
+function normalizeStoreId(storeId) {
+  return storeId.startsWith("store_") ? storeId.slice("store_".length) : storeId;
+}
+async function resolveBlobAuth(options) {
+  var _a3, _b2;
+  if (options == null ? void 0 : options.presignedUrlPayload) {
+    const storeId = parseStoreIdFromDelegationToken(
+      options.presignedUrlPayload.delegationToken
+    );
+    return { kind: "presigned", storeId };
+  }
+  if (options == null ? void 0 : options.token) {
+    const storeId = parseStoreIdFromReadWriteToken(options.token);
+    return { kind: "readWrite", token: options.token, storeId };
+  }
+  const manualOidcToken = (_a3 = options == null ? void 0 : options.oidcToken) == null ? void 0 : _a3.trim();
+  const oidcToken = manualOidcToken || await getVercelOidcToken2();
+  if (oidcToken) {
+    const manualStoreId = (_b2 = options == null ? void 0 : options.storeId) == null ? void 0 : _b2.trim();
+    if (manualStoreId) {
+      return {
+        kind: "oidc",
+        token: oidcToken,
+        storeId: normalizeStoreId(manualStoreId)
+      };
+    }
+    const blobStoreId = readEnv("BLOB_STORE_ID");
+    if (blobStoreId) {
+      return {
+        kind: "oidc",
+        token: oidcToken,
+        storeId: normalizeStoreId(blobStoreId)
+      };
+    }
+    if (manualOidcToken) {
+      throw new BlobError(
+        "oidcToken was passed, but no storeId was found. Pass a `storeId` option or set `BLOB_STORE_ID` to use OIDC auth"
+      );
+    }
+  }
+  const readWrite = readEnv("BLOB_READ_WRITE_TOKEN");
+  if (readWrite) {
+    const storeId = parseStoreIdFromReadWriteToken(readWrite);
+    return { kind: "readWrite", token: readWrite, storeId };
+  }
+  throw new BlobError(
+    "No blob credentials found. Pass a `token` option, set `BLOB_READ_WRITE_TOKEN`, or use `oidcToken` (or `VERCEL_OIDC_TOKEN`) with `storeId` or `BLOB_STORE_ID`."
+  );
+}
+function getReadWriteBlobTokenFromOptionsOrEnv(options) {
+  if (options == null ? void 0 : options.token) {
+    return options.token;
+  }
+  const readWrite = readEnv("BLOB_READ_WRITE_TOKEN");
+  if (readWrite) {
+    return readWrite;
+  }
+  throw new BlobError(
+    "No read-write token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+  );
+}
+function getDownloadUrl(blobUrl) {
+  const url = new URL(blobUrl);
+  url.searchParams.set("download", "1");
+  return url.toString();
+}
+function isPlainObject(value) {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return (prototype === null || prototype === Object.prototype || Object.getPrototypeOf(prototype) === null) && !(Symbol.toStringTag in value) && !(Symbol.iterator in value);
+}
+function getApiUrl(pathname = "") {
+  let baseUrl = null;
+  try {
+    baseUrl = process.env.VERCEL_BLOB_API_URL || process.env.NEXT_PUBLIC_VERCEL_BLOB_API_URL;
+  } catch {
+  }
+  return `${baseUrl || defaultVercelBlobApiUrl}${pathname}`;
+}
+function computeBodyLength(body) {
+  if (!body) {
+    return 0;
+  }
+  if (typeof body === "string") {
+    if (TEXT_ENCODER) {
+      return TEXT_ENCODER.encode(body).byteLength;
+    }
+    return new Blob([body]).size;
+  }
+  if ("byteLength" in body && typeof body.byteLength === "number") {
+    return body.byteLength;
+  }
+  if ("size" in body && typeof body.size === "number") {
+    return body.size;
+  }
+  return 0;
+}
+function isReadableStream(value) {
+  return globalThis.ReadableStream && // TODO: Can be removed once Node.js 16 is no more required internally
+  value instanceof ReadableStream;
+}
+function isStream(value) {
+  if (isReadableStream(value)) {
+    return true;
+  }
+  if (isNodeJsReadableStream(value)) {
+    return true;
+  }
+  return false;
+}
+function isUrl(urlOrPathname) {
+  return urlOrPathname.startsWith("http://") || urlOrPathname.startsWith("https://");
+}
+function constructBlobUrl(storeId, pathname, access) {
+  return `https://${storeId}.${access}.blob.vercel-storage.com/${pathname}`;
+}
+function debug(message, ...args) {
+  if (debugIsActive) {
+    console.debug(`vercel-blob: ${message}`, ...args);
+  }
+}
+function isNetworkError(error) {
+  const isValid = error && isError(error) && error.name === "TypeError" && typeof error.message === "string";
+  if (!isValid) {
+    return false;
+  }
+  if (error.message === "Load failed") {
+    return error.stack === void 0;
+  }
+  return errorMessages.has(error.message);
+}
+function getApiVersion() {
+  let versionOverride = null;
+  try {
+    versionOverride = process.env.VERCEL_BLOB_API_VERSION_OVERRIDE || process.env.NEXT_PUBLIC_VERCEL_BLOB_API_VERSION_OVERRIDE;
+  } catch {
+  }
+  return `${versionOverride != null ? versionOverride : BLOB_API_VERSION}`;
+}
+function getRetries() {
+  try {
+    const retries = process.env.VERCEL_BLOB_RETRIES || "10";
+    return parseInt(retries, 10);
+  } catch {
+    return 10;
+  }
+}
+function createBlobServiceRateLimited(response) {
+  const retryAfter = response.headers.get("retry-after");
+  return new BlobServiceRateLimited(
+    retryAfter ? parseInt(retryAfter, 10) : void 0
+  );
+}
+async function getBlobError(response) {
+  var _a3, _b2, _c;
+  let code;
+  let message;
+  try {
+    const data = await response.json();
+    code = (_b2 = (_a3 = data.error) == null ? void 0 : _a3.code) != null ? _b2 : "unknown_error";
+    message = (_c = data.error) == null ? void 0 : _c.message;
+  } catch {
+    code = "unknown_error";
+  }
+  if ((message == null ? void 0 : message.includes("contentType")) && message.includes("is not allowed")) {
+    code = "content_type_not_allowed";
+  }
+  if ((message == null ? void 0 : message.includes('"pathname"')) && message.includes("does not match the token payload")) {
+    code = "client_token_pathname_mismatch";
+  }
+  if (message === "Token expired") {
+    code = "client_token_expired";
+  }
+  if (message == null ? void 0 : message.includes("the file length cannot be greater than")) {
+    code = "file_too_large";
+  }
+  if ((message == null ? void 0 : message.startsWith("OIDC is enabled for this project, but not for the")) && message.includes("environment.")) {
+    code = "oidc_environment_not_allowed";
+  }
+  let error;
+  switch (code) {
+    case "store_suspended":
+      error = new BlobStoreSuspendedError();
+      break;
+    case "forbidden":
+      error = new BlobAccessError();
+      break;
+    case "oidc_environment_not_allowed":
+      error = new BlobOidcEnvironmentNotAllowedError(message);
+      break;
+    case "content_type_not_allowed":
+      error = new BlobContentTypeNotAllowedError(message);
+      break;
+    case "client_token_pathname_mismatch":
+      error = new BlobPathnameMismatchError(message);
+      break;
+    case "client_token_expired":
+      error = new BlobClientTokenExpiredError();
+      break;
+    case "file_too_large":
+      error = new BlobFileTooLargeError(message);
+      break;
+    case "not_found":
+      error = new BlobNotFoundError();
+      break;
+    case "client_token_not_allowed":
+      error = new BlobError(
+        message != null ? message : "This operation is not available when using a client token. Use a read\u2013write or OIDC token on the server."
+      );
+      break;
+    case "store_not_found":
+      error = new BlobStoreNotFoundError();
+      break;
+    case "bad_request":
+      error = new BlobError(message != null ? message : "Bad request");
+      break;
+    case "service_unavailable":
+      error = new BlobServiceNotAvailable();
+      break;
+    case "rate_limited":
+      error = createBlobServiceRateLimited(response);
+      break;
+    case "precondition_failed":
+      error = new BlobPreconditionFailedError();
+      break;
+    case "unknown_error":
+    case "not_allowed":
+    default:
+      error = new BlobUnknownError();
+      break;
+  }
+  return { code, error };
+}
+async function requestApi(pathname, init, commandOptions) {
+  const apiVersion = getApiVersion();
+  const auth = await resolveBlobAuth(commandOptions);
+  const bearerToken = auth.kind === "presigned" ? void 0 : auth.token;
+  const extraHeaders = getProxyThroughAlternativeApiHeaderFromEnv();
+  let requestInput = getApiUrl(pathname);
+  if (commandOptions == null ? void 0 : commandOptions.presignedUrlPayload) {
+    requestInput = addPresignedParams(
+      requestInput,
+      commandOptions.presignedUrlPayload
+    );
+  }
+  const requestId = `${auth.storeId}:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+  let retryCount = 0;
+  let bodyLength = 0;
+  let totalLoaded = 0;
+  const sendBodyLength = (commandOptions == null ? void 0 : commandOptions.onUploadProgress) || shouldUseXContentLength();
+  if (init.body && // 1. For upload progress we always need to know the total size of the body
+  // 2. In development we need the header for put() to work correctly when passing a stream
+  sendBodyLength) {
+    bodyLength = computeBodyLength(init.body);
+  }
+  if (commandOptions == null ? void 0 : commandOptions.onUploadProgress) {
+    commandOptions.onUploadProgress({
+      loaded: 0,
+      total: bodyLength,
+      percentage: 0
+    });
+  }
+  const apiResponse = await (0, import_async_retry.default)(
+    async (bail) => {
+      let res;
+      try {
+        res = await blobRequest({
+          input: requestInput,
+          init: {
+            ...init,
+            headers: {
+              "x-api-blob-request-id": requestId,
+              // Store ID is not encoded in OIDC token, so pass it separately as a header
+              "x-vercel-blob-store-id": auth.storeId,
+              "x-api-blob-request-attempt": String(retryCount),
+              "x-api-version": apiVersion,
+              ...sendBodyLength ? { "x-content-length": String(bodyLength) } : {},
+              ...bearerToken !== void 0 ? { authorization: `Bearer ${bearerToken}` } : {},
+              ...extraHeaders,
+              ...init.headers
+            }
+          },
+          onUploadProgress: (commandOptions == null ? void 0 : commandOptions.onUploadProgress) ? (loaded) => {
+            var _a3;
+            const total = bodyLength !== 0 ? bodyLength : loaded;
+            totalLoaded = loaded;
+            const percentage = bodyLength > 0 ? Number((loaded / total * 100).toFixed(2)) : 0;
+            if (percentage === 100 && bodyLength > 0) {
+              return;
+            }
+            (_a3 = commandOptions.onUploadProgress) == null ? void 0 : _a3.call(commandOptions, {
+              loaded,
+              // When passing a stream to put(), we have no way to know the total size of the body.
+              // Instead of defining total as total?: number we decided to set the total to the currently
+              // loaded number. This is not inaccurate and way more practical for DX.
+              // Passing down a stream to put() is very rare
+              total,
+              percentage
+            });
+          } : void 0
+        });
+      } catch (error2) {
+        if (error2 instanceof DOMException2 && error2.name === "AbortError") {
+          bail(new BlobRequestAbortedError());
+          return;
+        }
+        if (isNetworkError(error2)) {
+          throw error2;
+        }
+        if (error2 instanceof TypeError) {
+          bail(error2);
+          return;
+        }
+        throw error2;
+      }
+      if (res.ok) {
+        return res;
+      }
+      const { code, error } = await getBlobError(res);
+      if (code === "unknown_error" || code === "service_unavailable" || code === "internal_server_error") {
+        throw error;
+      }
+      bail(error);
+    },
+    {
+      retries: getRetries(),
+      onRetry: (error) => {
+        if (error instanceof Error) {
+          debug(`retrying API request to ${pathname}`, error.message);
+        }
+        retryCount = retryCount + 1;
+      }
+    }
+  );
+  if (!apiResponse) {
+    throw new BlobUnknownError();
+  }
+  if (commandOptions == null ? void 0 : commandOptions.onUploadProgress) {
+    commandOptions.onUploadProgress({
+      loaded: totalLoaded,
+      total: totalLoaded,
+      percentage: 100
+    });
+  }
+  return await apiResponse.json();
+}
+function getProxyThroughAlternativeApiHeaderFromEnv() {
+  const extraHeaders = {};
+  try {
+    if ("VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API" in process.env && process.env.VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API !== void 0) {
+      extraHeaders["x-proxy-through-alternative-api"] = process.env.VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API;
+    } else if ("NEXT_PUBLIC_VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API" in process.env && process.env.NEXT_PUBLIC_VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API !== void 0) {
+      extraHeaders["x-proxy-through-alternative-api"] = process.env.NEXT_PUBLIC_VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API;
+    }
+  } catch {
+  }
+  return extraHeaders;
+}
+function shouldUseXContentLength() {
+  try {
+    return process.env.VERCEL_BLOB_USE_X_CONTENT_LENGTH === "1";
+  } catch {
+    return false;
+  }
+}
+function validateOptimizeImageOptions(optimizeImage) {
+  if (typeof optimizeImage !== "object" || optimizeImage === null) {
+    throw new BlobError("optimizeImage must be an object, see usage");
+  }
+  const { width, quality, format } = optimizeImage;
+  if (!Number.isInteger(width) || width < 1 || width > 8192) {
+    throw new BlobError(
+      "optimizeImage.width must be an integer between 1 and 8192"
+    );
+  }
+  if (quality !== void 0 && (!Number.isInteger(quality) || quality < 1 || quality > 100)) {
+    throw new BlobError(
+      "optimizeImage.quality must be an integer between 1 and 100"
+    );
+  }
+  if (format !== void 0 && !(format in optimizeImageFormatToMimeType)) {
+    throw new BlobError(
+      `optimizeImage.format must be one of: ${Object.keys(
+        optimizeImageFormatToMimeType
+      ).join(", ")}`
+    );
+  }
+}
+function validateOptimizeImageSourceContentType(contentType) {
+  if (contentType && contentType !== "application/octet-stream" && !contentType.startsWith("image/")) {
+    throw new BlobError(
+      `optimizeImage requires an image body, but the content type is "${contentType}"`
+    );
+  }
+}
+function addOptimizeImageParams(params, optimizeImage) {
+  var _a3;
+  validateOptimizeImageOptions(optimizeImage);
+  params.set("width", String(optimizeImage.width));
+  params.set("quality", String((_a3 = optimizeImage.quality) != null ? _a3 : 75));
+  if (optimizeImage.format) {
+    params.set("format", optimizeImageFormatToMimeType[optimizeImage.format]);
+  }
+}
+function createPutHeaders(allowedOptions, options) {
+  const headers = {};
+  headers[putOptionHeaderMap.access] = options.access;
+  if (allowedOptions.includes("contentType") && options.contentType) {
+    headers[putOptionHeaderMap.contentType] = options.contentType;
+  }
+  if (allowedOptions.includes("addRandomSuffix") && options.addRandomSuffix !== void 0) {
+    headers[putOptionHeaderMap.addRandomSuffix] = options.addRandomSuffix ? "1" : "0";
+  }
+  if (allowedOptions.includes("ifMatch") && options.ifMatch) {
+    if (options.allowOverwrite === false) {
+      throw new BlobError(
+        "ifMatch and allowOverwrite: false are contradictory. ifMatch is used for conditional overwrites, which requires allowOverwrite to be true."
+      );
+    }
+    headers[putOptionHeaderMap.ifMatch] = options.ifMatch;
+    if (allowedOptions.includes("allowOverwrite") && options.allowOverwrite === void 0) {
+      headers[putOptionHeaderMap.allowOverwrite] = "1";
+    }
+  }
+  if (allowedOptions.includes("allowOverwrite") && options.allowOverwrite !== void 0) {
+    headers[putOptionHeaderMap.allowOverwrite] = options.allowOverwrite ? "1" : "0";
+  }
+  if (allowedOptions.includes("cacheControlMaxAge") && options.cacheControlMaxAge !== void 0) {
+    headers[putOptionHeaderMap.cacheControlMaxAge] = options.cacheControlMaxAge.toString();
+  }
+  return headers;
+}
+async function createPutOptions({
+  pathname,
+  options,
+  extraChecks,
+  getToken
+}) {
+  if (!pathname) {
+    throw new BlobError("pathname is required");
+  }
+  if (pathname.length > MAXIMUM_PATHNAME_LENGTH) {
+    throw new BlobError(
+      `pathname is too long, maximum length is ${MAXIMUM_PATHNAME_LENGTH}`
+    );
+  }
+  for (const invalidCharacter of disallowedPathnameCharacters) {
+    if (pathname.includes(invalidCharacter)) {
+      throw new BlobError(
+        `pathname cannot contain "${invalidCharacter}", please encode it if needed`
+      );
+    }
+  }
+  if (!options) {
+    throw new BlobError("missing options, see usage");
+  }
+  if (options.access !== "public" && options.access !== "private") {
+    throw new BlobError(
+      'access must be "private" or "public", see https://vercel.com/docs/vercel-blob'
+    );
+  }
+  if (extraChecks) {
+    extraChecks(options);
+  }
+  if (getToken) {
+    options.token = await getToken(pathname, options);
+  }
+  return options;
+}
+function createCompleteMultipartUploadMethod({ allowedOptions, getToken, extraChecks }) {
+  return async (pathname, parts, optionsInput) => {
+    const options = await createPutOptions({
+      pathname,
+      options: optionsInput,
+      extraChecks,
+      getToken
+    });
+    const headers = createPutHeaders(allowedOptions, options);
+    return completeMultipartUpload({
+      uploadId: options.uploadId,
+      key: options.key,
+      pathname,
+      headers,
+      options,
+      parts
+    });
+  };
+}
+async function completeMultipartUpload({
+  uploadId,
+  key,
+  pathname,
+  parts,
+  headers,
+  options
+}) {
+  const params = new URLSearchParams({ pathname });
+  try {
+    const response = await requestApi(
+      `/mpu?${params.toString()}`,
+      {
+        method: "POST",
+        headers: {
+          ...headers,
+          "content-type": "application/json",
+          "x-mpu-action": "complete",
+          "x-mpu-upload-id": uploadId,
+          // key can be any utf8 character so we need to encode it as HTTP headers can only be us-ascii
+          // https://www.rfc-editor.org/rfc/rfc7230#swection-3.2.4
+          "x-mpu-key": encodeURIComponent(key)
+        },
+        body: JSON.stringify(parts),
+        signal: options.abortSignal
+      },
+      options
+    );
+    debug("mpu: complete", response);
+    return response;
+  } catch (error) {
+    if (error instanceof TypeError && (error.message === "Failed to fetch" || error.message === "fetch failed")) {
+      throw new BlobServiceNotAvailable();
+    } else {
+      throw error;
+    }
+  }
+}
+function createCreateMultipartUploadMethod({ allowedOptions, getToken, extraChecks }) {
+  return async (pathname, optionsInput) => {
+    const options = await createPutOptions({
+      pathname,
+      options: optionsInput,
+      extraChecks,
+      getToken
+    });
+    const headers = createPutHeaders(allowedOptions, options);
+    const createMultipartUploadResponse = await createMultipartUpload(
+      pathname,
+      headers,
+      options
+    );
+    return {
+      key: createMultipartUploadResponse.key,
+      uploadId: createMultipartUploadResponse.uploadId
+    };
+  };
+}
+async function createMultipartUpload(pathname, headers, options) {
+  debug("mpu: create", "pathname:", pathname);
+  const params = new URLSearchParams({ pathname });
+  try {
+    const response = await requestApi(
+      `/mpu?${params.toString()}`,
+      {
+        method: "POST",
+        headers: {
+          ...headers,
+          "x-mpu-action": "create"
+        },
+        signal: options.abortSignal
+      },
+      options
+    );
+    debug("mpu: create", response);
+    return response;
+  } catch (error) {
+    if (error instanceof TypeError && (error.message === "Failed to fetch" || error.message === "fetch failed")) {
+      throw new BlobServiceNotAvailable();
+    }
+    throw error;
+  }
+}
+function createUploadPartMethod({ allowedOptions, getToken, extraChecks }) {
+  return async (pathname, body, optionsInput) => {
+    const options = await createPutOptions({
+      pathname,
+      options: optionsInput,
+      extraChecks,
+      getToken
+    });
+    const headers = createPutHeaders(allowedOptions, options);
+    if (isPlainObject(body)) {
+      throw new BlobError(
+        "Body must be a string, buffer or stream. You sent a plain JavaScript object, double check what you're trying to upload."
+      );
+    }
+    const result = await uploadPart({
+      uploadId: options.uploadId,
+      key: options.key,
+      pathname,
+      part: { blob: body, partNumber: options.partNumber },
+      headers,
+      options
+    });
+    return {
+      etag: result.etag,
+      partNumber: options.partNumber
+    };
+  };
+}
+async function uploadPart({
+  uploadId,
+  key,
+  pathname,
+  headers,
+  options,
+  internalAbortController = new AbortController(),
+  part
+}) {
+  var _a3, _b2, _c;
+  const params = new URLSearchParams({ pathname });
+  const responsePromise = requestApi(
+    `/mpu?${params.toString()}`,
+    {
+      signal: internalAbortController.signal,
+      method: "POST",
+      headers: {
+        ...headers,
+        "x-mpu-action": "upload",
+        "x-mpu-key": encodeURIComponent(key),
+        "x-mpu-upload-id": uploadId,
+        "x-mpu-part-number": part.partNumber.toString()
+      },
+      // weird things between undici types and native fetch types
+      body: part.blob
+    },
+    options
+  );
+  function handleAbort() {
+    internalAbortController.abort();
+  }
+  if ((_a3 = options.abortSignal) == null ? void 0 : _a3.aborted) {
+    handleAbort();
+  } else {
+    (_b2 = options.abortSignal) == null ? void 0 : _b2.addEventListener("abort", handleAbort);
+  }
+  const response = await responsePromise;
+  (_c = options.abortSignal) == null ? void 0 : _c.removeEventListener("abort", handleAbort);
+  return response;
+}
+function uploadAllParts({
+  uploadId,
+  key,
+  pathname,
+  stream,
+  headers,
+  options,
+  totalToLoad
+}) {
+  debug("mpu: upload init", "key:", key);
+  const internalAbortController = new AbortController();
+  return new Promise((resolve, reject) => {
+    const partsToUpload = [];
+    const completedParts = [];
+    const reader = stream.getReader();
+    let activeUploads = 0;
+    let reading = false;
+    let currentPartNumber = 1;
+    let rejected = false;
+    let currentBytesInMemory = 0;
+    let doneReading = false;
+    let bytesSent = 0;
+    let arrayBuffers = [];
+    let currentPartBytesRead = 0;
+    let onUploadProgress;
+    const totalLoadedPerPartNumber = {};
+    if (options.onUploadProgress) {
+      onUploadProgress = (0, import_throttleit.default)(() => {
+        var _a3;
+        const loaded = Object.values(totalLoadedPerPartNumber).reduce(
+          (acc, cur) => {
+            return acc + cur;
+          },
+          0
+        );
+        const total = totalToLoad || loaded;
+        const percentage = totalToLoad > 0 ? Number(((loaded / totalToLoad || loaded) * 100).toFixed(2)) : 0;
+        (_a3 = options.onUploadProgress) == null ? void 0 : _a3.call(options, { loaded, total, percentage });
+      }, 150);
+    }
+    read().catch(cancel);
+    async function read() {
+      debug(
+        "mpu: upload read start",
+        "activeUploads:",
+        activeUploads,
+        "currentBytesInMemory:",
+        `${bytes(currentBytesInMemory)}/${bytes(maxBytesInMemory)}`,
+        "bytesSent:",
+        bytes(bytesSent)
+      );
+      reading = true;
+      while (currentBytesInMemory < maxBytesInMemory && !rejected) {
+        try {
+          const { value, done } = await reader.read();
+          if (done) {
+            doneReading = true;
+            debug("mpu: upload read consumed the whole stream");
+            if (arrayBuffers.length > 0) {
+              partsToUpload.push({
+                partNumber: currentPartNumber++,
+                blob: new Blob(arrayBuffers, {
+                  type: "application/octet-stream"
+                })
+              });
+              sendParts();
+            } else if (activeUploads === 0) {
+              reader.releaseLock();
+              resolve(completedParts);
+            }
+            reading = false;
+            return;
+          }
+          currentBytesInMemory += value.byteLength;
+          let valueOffset = 0;
+          while (valueOffset < value.byteLength) {
+            const remainingPartSize = partSizeInBytes - currentPartBytesRead;
+            const endOffset = Math.min(
+              valueOffset + remainingPartSize,
+              value.byteLength
+            );
+            const chunk = value.slice(valueOffset, endOffset);
+            arrayBuffers.push(chunk);
+            currentPartBytesRead += chunk.byteLength;
+            valueOffset = endOffset;
+            if (currentPartBytesRead === partSizeInBytes) {
+              partsToUpload.push({
+                partNumber: currentPartNumber++,
+                blob: new Blob(arrayBuffers, {
+                  type: "application/octet-stream"
+                })
+              });
+              arrayBuffers = [];
+              currentPartBytesRead = 0;
+              sendParts();
+            }
+          }
+        } catch (error) {
+          cancel(error);
+        }
+      }
+      debug(
+        "mpu: upload read end",
+        "activeUploads:",
+        activeUploads,
+        "currentBytesInMemory:",
+        `${bytes(currentBytesInMemory)}/${bytes(maxBytesInMemory)}`,
+        "bytesSent:",
+        bytes(bytesSent)
+      );
+      reading = false;
+    }
+    async function sendPart(part) {
+      activeUploads++;
+      debug(
+        "mpu: upload send part start",
+        "partNumber:",
+        part.partNumber,
+        "size:",
+        part.blob.size,
+        "activeUploads:",
+        activeUploads,
+        "currentBytesInMemory:",
+        `${bytes(currentBytesInMemory)}/${bytes(maxBytesInMemory)}`,
+        "bytesSent:",
+        bytes(bytesSent)
+      );
+      try {
+        const uploadProgressForPart = options.onUploadProgress ? (event) => {
+          totalLoadedPerPartNumber[part.partNumber] = event.loaded;
+          if (onUploadProgress) {
+            onUploadProgress();
+          }
+        } : void 0;
+        const completedPart = await uploadPart({
+          uploadId,
+          key,
+          pathname,
+          headers,
+          options: {
+            ...options,
+            onUploadProgress: uploadProgressForPart
+          },
+          internalAbortController,
+          part
+        });
+        debug(
+          "mpu: upload send part end",
+          "partNumber:",
+          part.partNumber,
+          "activeUploads",
+          activeUploads,
+          "currentBytesInMemory:",
+          `${bytes(currentBytesInMemory)}/${bytes(maxBytesInMemory)}`,
+          "bytesSent:",
+          bytes(bytesSent)
+        );
+        if (rejected) {
+          return;
+        }
+        completedParts.push({
+          partNumber: part.partNumber,
+          etag: completedPart.etag
+        });
+        currentBytesInMemory -= part.blob.size;
+        activeUploads--;
+        bytesSent += part.blob.size;
+        if (partsToUpload.length > 0) {
+          sendParts();
+        }
+        if (doneReading) {
+          if (activeUploads === 0) {
+            reader.releaseLock();
+            resolve(completedParts);
+          }
+          return;
+        }
+        if (!reading) {
+          read().catch(cancel);
+        }
+      } catch (error) {
+        cancel(error);
+      }
+    }
+    function sendParts() {
+      if (rejected) {
+        return;
+      }
+      debug(
+        "send parts",
+        "activeUploads",
+        activeUploads,
+        "partsToUpload",
+        partsToUpload.length
+      );
+      while (activeUploads < maxConcurrentUploads && partsToUpload.length > 0) {
+        const partToSend = partsToUpload.shift();
+        if (partToSend) {
+          void sendPart(partToSend);
+        }
+      }
+    }
+    function cancel(error) {
+      if (rejected) {
+        return;
+      }
+      rejected = true;
+      internalAbortController.abort();
+      reader.releaseLock();
+      if (error instanceof TypeError && (error.message === "Failed to fetch" || error.message === "fetch failed")) {
+        reject(new BlobServiceNotAvailable());
+      } else {
+        reject(error);
+      }
+    }
+  });
+}
+function createCreateMultipartUploaderMethod({ allowedOptions, getToken, extraChecks }) {
+  return async (pathname, optionsInput) => {
+    const options = await createPutOptions({
+      pathname,
+      options: optionsInput,
+      extraChecks,
+      getToken
+    });
+    const headers = createPutHeaders(allowedOptions, options);
+    const createMultipartUploadResponse = await createMultipartUpload(
+      pathname,
+      headers,
+      options
+    );
+    return {
+      key: createMultipartUploadResponse.key,
+      uploadId: createMultipartUploadResponse.uploadId,
+      async uploadPart(partNumber, body) {
+        if (isPlainObject(body)) {
+          throw new BlobError(
+            "Body must be a string, buffer or stream. You sent a plain JavaScript object, double check what you're trying to upload."
+          );
+        }
+        const result = await uploadPart({
+          uploadId: createMultipartUploadResponse.uploadId,
+          key: createMultipartUploadResponse.key,
+          pathname,
+          part: { partNumber, blob: body },
+          headers,
+          options
+        });
+        return {
+          etag: result.etag,
+          partNumber
+        };
+      },
+      async complete(parts) {
+        return completeMultipartUpload({
+          uploadId: createMultipartUploadResponse.uploadId,
+          key: createMultipartUploadResponse.key,
+          pathname,
+          parts,
+          headers,
+          options
+        });
+      }
+    };
+  };
+}
+async function uncontrolledMultipartUpload(pathname, body, headers, options) {
+  debug("mpu: init", "pathname:", pathname, "headers:", headers);
+  const optionsWithoutOnUploadProgress = {
+    ...options,
+    onUploadProgress: void 0
+  };
+  if (options.maximumSizeInBytes !== void 0 && !isStream(body) && computeBodyLength(body) > options.maximumSizeInBytes) {
+    throw new BlobError(
+      `Body size of ${computeBodyLength(body)} bytes exceeds the maximum allowed size of ${options.maximumSizeInBytes} bytes`
+    );
+  }
+  const createMultipartUploadResponse = await createMultipartUpload(
+    pathname,
+    headers,
+    optionsWithoutOnUploadProgress
+  );
+  const totalToLoad = computeBodyLength(body);
+  const stream = await toReadableStream(body);
+  const parts = await uploadAllParts({
+    uploadId: createMultipartUploadResponse.uploadId,
+    key: createMultipartUploadResponse.key,
+    pathname,
+    // @ts-expect-error ReadableStream<ArrayBuffer | Uint8Array> is compatible at runtime
+    stream,
+    headers,
+    options,
+    totalToLoad
+  });
+  const blob = await completeMultipartUpload({
+    uploadId: createMultipartUploadResponse.uploadId,
+    key: createMultipartUploadResponse.key,
+    pathname,
+    parts,
+    headers,
+    options: optionsWithoutOnUploadProgress
+  });
+  return blob;
+}
+function createPutMethod({
+  allowedOptions,
+  getToken,
+  getPresignedUrlPayload,
+  extraChecks
+}) {
+  return async function put3(pathname, body, optionsInput) {
+    var _a3;
+    if (!body) {
+      throw new BlobError("body is required");
+    }
+    if (isPlainObject(body)) {
+      throw new BlobError(
+        "Body must be a string, buffer or stream. You sent a plain JavaScript object, double check what you're trying to upload."
+      );
+    }
+    const options = await createPutOptions({
+      pathname,
+      options: optionsInput,
+      extraChecks,
+      getToken
+    });
+    const presignedUrlPayload = await (getPresignedUrlPayload == null ? void 0 : getPresignedUrlPayload(
+      pathname,
+      options
+    ));
+    const optionsWithPresignedUrlPayload = {
+      ...options,
+      presignedUrlPayload
+    };
+    const headers = createPutHeaders(allowedOptions, options);
+    if (options.optimizeImage) {
+      if (options.multipart === true) {
+        throw new BlobError(
+          "optimizeImage cannot be combined with multipart uploads"
+        );
+      }
+      validateOptimizeImageSourceContentType(
+        (_a3 = options.contentType) != null ? _a3 : typeof Blob !== "undefined" && body instanceof Blob ? body.type : void 0
+      );
+      const params2 = new URLSearchParams({ pathname });
+      addOptimizeImageParams(params2, options.optimizeImage);
+      const response2 = await requestApi(
+        `/put-optimized?${params2.toString()}`,
+        {
+          method: "POST",
+          body,
+          headers,
+          signal: options.abortSignal
+        },
+        optionsWithPresignedUrlPayload
+      );
+      return {
+        url: response2.url,
+        downloadUrl: response2.downloadUrl,
+        pathname: response2.pathname,
+        contentType: response2.contentType,
+        contentDisposition: response2.contentDisposition,
+        etag: response2.etag
+      };
+    }
+    if (options.multipart === true) {
+      return uncontrolledMultipartUpload(
+        pathname,
+        body,
+        headers,
+        optionsWithPresignedUrlPayload
+      );
+    }
+    const onUploadProgress = options.onUploadProgress ? (0, import_throttleit2.default)(options.onUploadProgress, 100) : void 0;
+    const params = new URLSearchParams({ pathname });
+    const response = await requestApi(
+      `/?${params.toString()}`,
+      {
+        method: "PUT",
+        body,
+        headers,
+        signal: options.abortSignal
+      },
+      {
+        ...optionsWithPresignedUrlPayload,
+        onUploadProgress
+      }
+    );
+    return {
+      url: response.url,
+      downloadUrl: response.downloadUrl,
+      pathname: response.pathname,
+      contentType: response.contentType,
+      contentDisposition: response.contentDisposition,
+      etag: response.etag
+    };
+  };
+}
+function contentTypeAllowedByList(contentType, allowed) {
+  const [type] = contentType.split("/");
+  const wildcard = `${type}/*`;
+  return allowed.includes(contentType) || (type ? allowed.includes(wildcard) : false);
+}
+function assertAllowedContentTypesSubset(optionsTypes, delegationTypes, label) {
+  if (!(optionsTypes == null ? void 0 : optionsTypes.length)) {
+    return;
+  }
+  if (!(delegationTypes == null ? void 0 : delegationTypes.length)) {
+    return;
+  }
+  for (const ct2 of optionsTypes) {
+    if (!contentTypeAllowedByList(ct2, delegationTypes)) {
+      throw new Error(
+        `${label}: allowedContentTypes entry "${ct2}" is not permitted by the delegation token.`
+      );
+    }
+  }
+}
+function assertNumberSubset(name, optionVal, delegationVal, label, mode) {
+  if (optionVal === void 0) {
+    return;
+  }
+  if (delegationVal === void 0) {
+    return;
+  }
+  if (mode === "lte" && optionVal > delegationVal) {
+    throw new Error(
+      `${label}: ${name} must be \u2264 delegation (${String(delegationVal)}).`
+    );
+  }
+}
+function isPlausibleAbsoluteUrl(s) {
+  if (typeof URL !== "undefined" && typeof URL.canParse === "function") {
+    return URL.canParse(s);
+  }
+  try {
+    new URL(s);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function validatePresignUrlOnUploadCompletedWire(opt, label) {
+  if (!opt) {
+    return;
+  }
+  if (typeof opt.callbackUrl !== "string" || opt.callbackUrl.length === 0) {
+    throw new Error(
+      `${label}: onUploadCompleted.callbackUrl must be a non-empty string.`
+    );
+  }
+  if (opt.callbackUrl.length > MAX_PRESIGN_CALLBACK_URL_CHARS) {
+    throw new Error(`${label}: onUploadCompleted.callbackUrl is too long.`);
+  }
+  if (!isPlausibleAbsoluteUrl(opt.callbackUrl)) {
+    throw new Error(
+      `${label}: onUploadCompleted.callbackUrl must be a valid URL.`
+    );
+  }
+  if (opt.tokenPayload !== void 0 && opt.tokenPayload !== null) {
+    if (typeof opt.tokenPayload !== "string") {
+      throw new Error(
+        `${label}: onUploadCompleted.tokenPayload must be a string.`
+      );
+    }
+    if (opt.tokenPayload.length > MAX_PRESIGN_CALLBACK_TOKEN_PAYLOAD_CHARS) {
+      throw new Error(`${label}: onUploadCompleted.tokenPayload is too long.`);
+    }
+  }
+}
+function validateUrlOnlyPresignUploadOptions(urlOptions, label) {
+  if (urlOptions.cacheControlMaxAge !== void 0) {
+    const n = urlOptions.cacheControlMaxAge;
+    if (!Number.isInteger(n) || n < 0 || n > MAX_PRESIGN_CACHE_CONTROL_MAX_AGE_SECONDS) {
+      throw new Error(
+        `${label}: cacheControlMaxAge must be an integer between 0 and ${MAX_PRESIGN_CACHE_CONTROL_MAX_AGE_SECONDS}.`
+      );
+    }
+  }
+  if (urlOptions.ifMatch !== void 0) {
+    const im = urlOptions.ifMatch;
+    if (typeof im !== "string" || im.length === 0) {
+      throw new Error(`${label}: ifMatch must be a non-empty string.`);
+    }
+    if (im.length > MAX_PRESIGN_IF_MATCH_LENGTH) {
+      throw new Error(`${label}: ifMatch is too long.`);
+    }
+    if (IF_MATCH_CONTROL_CHARS_RE.test(im)) {
+      throw new Error(
+        `${label}: ifMatch contains disallowed control characters.`
+      );
+    }
+  }
+}
+function sortedContentTypesCsv(types) {
+  return [...types].sort((a2, b2) => a2 < b2 ? -1 : a2 > b2 ? 1 : 0).join(",");
+}
+function resolvePresignUrlValidUntilMs(args) {
+  const { delegationValidUntil, urlOptions, nowMs } = args;
+  let t;
+  if ((urlOptions == null ? void 0 : urlOptions.validUntil) !== void 0) {
+    if (typeof urlOptions.validUntil !== "number" || !Number.isFinite(urlOptions.validUntil)) {
+      throw new Error("presignUrl: validUntil must be a finite number (ms).");
+    }
+    t = Math.trunc(urlOptions.validUntil);
+  } else {
+    t = Math.trunc(delegationValidUntil);
+  }
+  if (Number.isFinite(delegationValidUntil)) {
+    t = Math.min(t, Math.trunc(delegationValidUntil));
+  }
+  if (t <= nowMs) {
+    throw new Error(
+      "presignUrl: resolved URL expiry is not after the current time; issue a new delegation token or pass a later validUntil."
+    );
+  }
+  return t;
+}
+function buildPresignCanonicalQueryEntries(args) {
+  const { operation, delegation, urlOptions, nowMs } = args;
+  const label = "presignUrl";
+  const resolvedUntil = resolvePresignUrlValidUntilMs({
+    delegationValidUntil: delegation.validUntil,
+    urlOptions,
+    nowMs
+  });
+  const delegUntil = Math.trunc(delegation.validUntil);
+  const entries = [];
+  if (resolvedUntil < delegUntil) {
+    entries.push([BLOB_PRESIGN_QUERY_VALID_UNTIL, String(resolvedUntil)]);
+  }
+  if (operation === "delete") {
+    if ((urlOptions == null ? void 0 : urlOptions.ifMatch) !== void 0) {
+      entries.push([BLOB_PRESIGN_QUERY_IF_MATCH, urlOptions.ifMatch]);
+    }
+    return entries;
+  }
+  if (operation !== "put" || !urlOptions) {
+    return entries;
+  }
+  assertAllowedContentTypesSubset(
+    urlOptions.allowedContentTypes,
+    delegation.allowedContentTypes,
+    label
+  );
+  assertNumberSubset(
+    "maximumSizeInBytes",
+    urlOptions.maximumSizeInBytes,
+    delegation.maximumSizeInBytes,
+    label,
+    "lte"
+  );
+  validateUrlOnlyPresignUploadOptions(urlOptions, label);
+  validatePresignUrlOnUploadCompletedWire(urlOptions.onUploadCompleted, label);
+  if (urlOptions.allowedContentTypes !== void 0) {
+    const csv = sortedContentTypesCsv(urlOptions.allowedContentTypes);
+    if (csv.length > 16384) {
+      throw new Error(`${label}: allowedContentTypes query value is too long.`);
+    }
+    entries.push([BLOB_PRESIGN_QUERY_ALLOWED_CONTENT_TYPES, csv]);
+  }
+  if (urlOptions.maximumSizeInBytes !== void 0) {
+    entries.push([
+      BLOB_PRESIGN_QUERY_MAXIMUM_SIZE,
+      String(Math.trunc(urlOptions.maximumSizeInBytes))
+    ]);
+  }
+  if (urlOptions.addRandomSuffix !== void 0) {
+    entries.push([
+      BLOB_PRESIGN_QUERY_ADD_RANDOM_SUFFIX,
+      urlOptions.addRandomSuffix ? "true" : "false"
+    ]);
+  }
+  if (urlOptions.allowOverwrite !== void 0) {
+    entries.push([
+      BLOB_PRESIGN_QUERY_ALLOW_OVERWRITE,
+      urlOptions.allowOverwrite ? "true" : "false"
+    ]);
+  }
+  if (urlOptions.cacheControlMaxAge !== void 0) {
+    entries.push([
+      BLOB_PRESIGN_QUERY_CACHE_CONTROL_MAX_AGE,
+      String(Math.trunc(urlOptions.cacheControlMaxAge))
+    ]);
+  }
+  if (urlOptions.ifMatch !== void 0) {
+    entries.push([BLOB_PRESIGN_QUERY_IF_MATCH, urlOptions.ifMatch]);
+  }
+  if (urlOptions.onUploadCompleted !== void 0) {
+    const { callbackUrl, tokenPayload } = urlOptions.onUploadCompleted;
+    if (callbackUrl.length > MAX_PRESIGN_CALLBACK_URL_CHARS) {
+      throw new Error(`${label}: onUploadCompleted.callbackUrl is too long.`);
+    }
+    entries.push([BLOB_PRESIGN_QUERY_CALLBACK_URL, callbackUrl]);
+    if (tokenPayload !== void 0 && tokenPayload !== null && tokenPayload !== "") {
+      if (tokenPayload.length > MAX_PRESIGN_CALLBACK_TOKEN_PAYLOAD_CHARS) {
+        throw new Error(
+          `${label}: onUploadCompleted.tokenPayload is too long.`
+        );
+      }
+      entries.push([BLOB_PRESIGN_QUERY_CALLBACK_TOKEN_PAYLOAD, tokenPayload]);
+    }
+  }
+  return entries;
+}
+function assertIssueSignedTokenValidUntilOption(validUntil) {
+  const now2 = Date.now();
+  if (typeof validUntil !== "number" || !Number.isInteger(validUntil) || !Number.isFinite(validUntil)) {
+    throw new BlobError(
+      "`issueSignedToken`: validUntil must be an integer milliseconds timestamp."
+    );
+  }
+  if (validUntil <= now2) {
+    throw new BlobError(
+      "`issueSignedToken`: validUntil must be in the future."
+    );
+  }
+}
+async function issueSignedToken(options) {
+  if (!options) {
+    throw new BlobError("`issueSignedToken` requires an options object");
+  }
+  const body = {};
+  if (options.pathname !== void 0) {
+    body.pathname = options.pathname;
+  }
+  if (options.operations !== void 0) {
+    if (options.operations.length === 0) {
+      throw new BlobError("`operations` must be a non-empty array if provided");
+    }
+    body.operations = dedupeOps(options.operations);
+  }
+  if (options.validUntil !== void 0) {
+    assertIssueSignedTokenValidUntilOption(options.validUntil);
+    body.validUntil = options.validUntil;
+  }
+  if (options.maximumSizeInBytes !== void 0) {
+    body.maximumSizeInBytes = options.maximumSizeInBytes;
+  }
+  if (options.allowedContentTypes !== void 0) {
+    body.allowedContentTypes = options.allowedContentTypes;
+  }
+  return requestApi(
+    "/signed-token",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: options.abortSignal
+    },
+    options
+  );
+}
+function dedupeOps(operations) {
+  return Array.from(new Set(operations));
+}
+function base64UrlDecodeToString(segment) {
+  let base64 = segment.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = 4 - base64.length % 4;
+  if (padding !== 4) {
+    base64 += "=".repeat(padding);
+  }
+  if (typeof atob === "function") {
+    return atob(base64);
+  }
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(base64, "base64").toString("utf8");
+  }
+  throw new BlobError("Cannot decode base64: no atob or Buffer available.");
+}
+function tryDecodePayload(delegationToken) {
+  const dot = delegationToken.indexOf(".");
+  if (dot < 0) {
+    return null;
+  }
+  const payloadSeg = delegationToken.slice(0, dot);
+  try {
+    return JSON.parse(
+      base64UrlDecodeToString(payloadSeg)
+    );
+  } catch {
+    return null;
+  }
+}
+function uint8ToBase64(bytes2) {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(
+      bytes2.buffer,
+      bytes2.byteOffset,
+      bytes2.byteLength
+    ).toString("base64");
+  }
+  let s = "";
+  for (let i = 0; i < bytes2.length; i++) {
+    s += String.fromCharCode(bytes2[i]);
+  }
+  return btoa(s);
+}
+async function hmacSha256Base64Url(key, data) {
+  var _a3;
+  if (!((_a3 = globalThis.crypto) == null ? void 0 : _a3.subtle)) {
+    throw new BlobError(
+      "HMAC is not available: expected globalThis.crypto.subtle (Node 20+ or a modern browser)."
+    );
+  }
+  const enc = new TextEncoder();
+  const cryptoKey = await globalThis.crypto.subtle.importKey(
+    "raw",
+    enc.encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const buf = await globalThis.crypto.subtle.sign(
+    "HMAC",
+    cryptoKey,
+    enc.encode(data)
+  );
+  return toBase64Url(uint8ToBase64(new Uint8Array(buf)));
+}
+function toBase64Url(base64) {
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function presign(signedToken, options) {
+  var _a3, _b2, _c, _d;
+  if (!(signedToken == null ? void 0 : signedToken.clientSigningToken) || !(signedToken == null ? void 0 : signedToken.delegationToken)) {
+    throw new BlobError(
+      "`clientSigningToken` and `delegationToken` from `issueSignedToken` are required."
+    );
+  }
+  const scope = tryDecodePayload(signedToken.delegationToken);
+  if (!scope) {
+    throw new BlobError("Invalid or unreadable `delegationToken` payload.");
+  }
+  const p2 = scope.pathname;
+  if (p2 && p2 !== "*") {
+    if (options.pathname !== p2) {
+      throw new BlobError(
+        `Blob path does not match the signed token scope; expected \`${p2}\`, got \`${options.pathname}\`.`
+      );
+    }
+  }
+  if (Number.isFinite(scope.validUntil) && Date.now() > scope.validUntil) {
+    throw new BlobError(
+      "The signed delegation has expired; issue a new token first."
+    );
+  }
+  if (options.operation === "get" && !((_a3 = scope.operations) == null ? void 0 : _a3.includes("get"))) {
+    throw new BlobError(
+      'The delegation token is not valid for `GET` requests. Include `"get"` in `operations` when calling `issueSignedToken`.'
+    );
+  }
+  if (options.operation === "head" && !((_b2 = scope.operations) == null ? void 0 : _b2.includes("head"))) {
+    throw new BlobError(
+      'The delegation token is not valid for `HEAD` requests. Include `"head"` in `operations` when calling `issueSignedToken`.'
+    );
+  }
+  if (options.operation === "put" && !((_c = scope.operations) == null ? void 0 : _c.includes("put"))) {
+    throw new BlobError(
+      'The delegation token is not valid for presigned write requests. Include `"put"` in `operations` when calling `issueSignedToken`.'
+    );
+  }
+  if (options.operation === "delete" && !((_d = scope.operations) == null ? void 0 : _d.includes("delete"))) {
+    throw new BlobError(
+      'The delegation token is not valid for presigned delete requests. Include `"delete"` in `operations` when calling `issueSignedToken`.'
+    );
+  }
+  const delegationForOptions = {
+    validUntil: scope.validUntil,
+    maximumSizeInBytes: scope.maximumSizeInBytes,
+    allowedContentTypes: scope.allowedContentTypes
+  };
+  let presignEntries;
+  try {
+    presignEntries = buildPresignCanonicalQueryEntries({
+      operation: options.operation,
+      delegation: delegationForOptions,
+      urlOptions: options,
+      nowMs: Date.now()
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new BlobError(msg);
+  }
+  const canonical = canonicalString(
+    options.pathname,
+    presignEntries,
+    options.operation
+  );
+  const signature = await hmacSha256Base64Url(
+    signedToken.clientSigningToken,
+    canonical
+  );
+  return {
+    delegationToken: signedToken.delegationToken,
+    signature,
+    params: Object.fromEntries(presignEntries)
+  };
+}
+function buildPresignedGetUrl(pathnameOrUrl, presignedUrlPayload, options) {
+  const storeId = parseStoreIdFromDelegationToken(
+    presignedUrlPayload.delegationToken
+  );
+  let blobUrl = isUrl(pathnameOrUrl) ? pathnameOrUrl : constructBlobUrl(storeId, pathnameOrUrl, options.access);
+  if (options.useCache === false && options.access === "private") {
+    const url = new URL(blobUrl);
+    url.searchParams.set("cache", "0");
+    blobUrl = url.toString();
+  }
+  return addPresignedParams(blobUrl, presignedUrlPayload);
+}
+function buildPresignedPutUrl(pathname, presignedUrlPayload) {
+  const params = new URLSearchParams({ pathname });
+  const apiUrl = getApiUrl(`/?${params.toString()}`);
+  return addPresignedParams(apiUrl, presignedUrlPayload);
+}
+function buildPresignedDeleteUrl(pathname, presignedUrlPayload) {
+  const params = new URLSearchParams({ pathname });
+  const apiUrl = getApiUrl(`/?${params.toString()}`);
+  return addPresignedParams(apiUrl, presignedUrlPayload);
+}
+async function presignUrl(signedToken, options) {
+  const payload = await presign(signedToken, options);
+  if (options.operation === "get" || options.operation === "head") {
+    return {
+      presignedUrl: buildPresignedGetUrl(options.pathname, payload, options)
+    };
+  }
+  if (options.operation === "put") {
+    return {
+      presignedUrl: buildPresignedPutUrl(options.pathname, payload)
+    };
+  }
+  if (options.operation === "delete") {
+    return {
+      presignedUrl: buildPresignedDeleteUrl(options.pathname, payload)
+    };
+  }
+  throw new BlobError(`Unknown operation`);
+}
+function canonicalString(pathname, presignEntries, operation) {
+  var _a3;
+  const lines = [`operation=${operation}`, `pathname=${pathname}`];
+  for (const k of PRESIGN_CANONICAL_QUERY_KEYS) {
+    const v2 = (_a3 = presignEntries.find(([key]) => key === k)) == null ? void 0 : _a3[1];
+    if (v2) {
+      lines.push(`${k}=${v2}`);
+    }
+  }
+  lines.sort((a2, b2) => compareUtf8(a2, b2));
+  return lines.join("\n");
+}
+function compareUtf8(a2, b2) {
+  const ab = utf8Encoder.encode(a2);
+  const bb = utf8Encoder.encode(b2);
+  const n = Math.min(ab.length, bb.length);
+  for (let i = 0; i < n; i++) {
+    const d2 = ab[i] - bb[i];
+    if (d2 !== 0) {
+      return d2;
+    }
+  }
+  return ab.length - bb.length;
+}
+async function createFolder(pathname, options = { access: "public" }) {
+  var _a3;
+  const access = (_a3 = options.access) != null ? _a3 : "public";
+  const folderPathname = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  const headers = {};
+  headers[putOptionHeaderMap.access] = access;
+  headers[putOptionHeaderMap.addRandomSuffix] = "0";
+  const params = new URLSearchParams({ pathname: folderPathname });
+  const response = await requestApi(
+    `/?${params.toString()}`,
+    {
+      method: "PUT",
+      headers,
+      signal: options.abortSignal
+    },
+    options
+  );
+  return {
+    url: response.url,
+    pathname: response.pathname
+  };
+}
+var import_is_buffer, import_stream, import_oidc, import_async_retry, import_undici, import_throttleit, import_throttleit2, supportsNewBlobFromArrayBuffer, parseRegExp, map, defaultVercelBlobApiUrl, BlobError, disallowedPathnameCharacters, supportsRequestStreams, TEXT_ENCODER, createChunkTransformStream, addPresignedParams, debugIsActive, _a, _b, _a2, DOMException2, objectToString, isError, errorMessages, hasFetch, hasFetchWithUploadProgress, CHUNK_SIZE, blobFetch, hasXhr, blobXhr, blobRequest, MAXIMUM_PATHNAME_LENGTH, BlobAccessError, BlobOidcEnvironmentNotAllowedError, BlobContentTypeNotAllowedError, BlobPathnameMismatchError, BlobClientTokenExpiredError, BlobFileTooLargeError, BlobStoreNotFoundError, BlobStoreSuspendedError, BlobUnknownError, BlobNotFoundError, BlobServiceNotAvailable, BlobServiceRateLimited, BlobRequestAbortedError, BlobPreconditionFailedError, BLOB_API_VERSION, optimizeImageFormatToMimeType, putOptionHeaderMap, maxConcurrentUploads, partSizeInBytes, maxBytesInMemory, BLOB_PRESIGN_QUERY_VALID_UNTIL, BLOB_PRESIGN_QUERY_MAXIMUM_SIZE, BLOB_PRESIGN_QUERY_ALLOWED_CONTENT_TYPES, BLOB_PRESIGN_QUERY_ADD_RANDOM_SUFFIX, BLOB_PRESIGN_QUERY_ALLOW_OVERWRITE, BLOB_PRESIGN_QUERY_CACHE_CONTROL_MAX_AGE, BLOB_PRESIGN_QUERY_IF_MATCH, BLOB_PRESIGN_QUERY_CALLBACK_URL, BLOB_PRESIGN_QUERY_CALLBACK_TOKEN_PAYLOAD, PRESIGN_CANONICAL_QUERY_KEYS, MAX_PRESIGN_CALLBACK_URL_CHARS, MAX_PRESIGN_CALLBACK_TOKEN_PAYLOAD_CHARS, MAX_PRESIGN_CACHE_CONTROL_MAX_AGE_SECONDS, MAX_PRESIGN_IF_MATCH_LENGTH, IF_MATCH_CONTROL_CHARS_RE, utf8Encoder;
+var init_chunk_YYMLUMXS = __esm({
+  "node_modules/@vercel/blob/dist/chunk-YYMLUMXS.js"() {
+    init_lib();
+    import_is_buffer = __toESM(require_is_buffer(), 1);
+    import_stream = require("stream");
+    import_oidc = __toESM(require_dist3(), 1);
+    import_async_retry = __toESM(require_lib4(), 1);
+    import_undici = __toESM(require_undici(), 1);
+    import_throttleit = __toESM(require_throttleit(), 1);
+    import_throttleit2 = __toESM(require_throttleit(), 1);
+    supportsNewBlobFromArrayBuffer = new Promise((resolve) => {
+      try {
+        const helloAsArrayBuffer = new Uint8Array([104, 101, 108, 108, 111]);
+        const blob = new Blob([helloAsArrayBuffer]);
+        blob.text().then((text) => {
+          resolve(text === "hello");
+        }).catch(() => {
+          resolve(false);
+        });
+      } catch {
+        resolve(false);
+      }
+    });
+    parseRegExp = /^((-|\+)?(\d+(?:\.\d+)?)) *(kb|mb|gb|tb|pb)$/i;
+    map = {
+      b: 1,
+      kb: 1 << 10,
+      mb: 1 << 20,
+      gb: 1 << 30,
+      tb: 1024 ** 4,
+      pb: 1024 ** 5
+    };
+    defaultVercelBlobApiUrl = "https://vercel.com/api/blob";
+    BlobError = class extends Error {
+      constructor(message) {
+        super(`Vercel Blob: ${message}`);
+      }
+    };
+    disallowedPathnameCharacters = ["//"];
+    supportsRequestStreams = (() => {
+      if (isNodeProcess()) {
+        return true;
+      }
+      const apiUrl = getApiUrl();
+      if (apiUrl.startsWith("http://localhost")) {
+        return false;
+      }
+      let duplexAccessed = false;
+      const hasContentType = new Request(getApiUrl(), {
+        body: new ReadableStream(),
+        method: "POST",
+        // @ts-expect-error -- TypeScript doesn't yet have duplex but it's in the spec: https://github.com/microsoft/TypeScript-DOM-lib-generator/pull/1729
+        get duplex() {
+          duplexAccessed = true;
+          return "half";
+        }
+      }).headers.has("Content-Type");
+      return duplexAccessed && !hasContentType;
+    })();
+    TEXT_ENCODER = typeof TextEncoder === "function" ? new TextEncoder() : null;
+    createChunkTransformStream = (chunkSize, onProgress) => {
+      let buffer = new Uint8Array(0);
+      return new TransformStream({
+        transform(chunk, controller) {
+          const newBuffer = new Uint8Array(buffer.length + chunk.byteLength);
+          newBuffer.set(buffer);
+          newBuffer.set(new Uint8Array(chunk), buffer.length);
+          buffer = newBuffer;
+          while (buffer.length >= chunkSize) {
+            const newChunk = buffer.slice(0, chunkSize);
+            controller.enqueue(newChunk);
+            onProgress == null ? void 0 : onProgress(newChunk.byteLength);
+            buffer = buffer.slice(chunkSize);
+          }
+        },
+        flush(controller) {
+          if (buffer.length > 0) {
+            controller.enqueue(buffer);
+            onProgress == null ? void 0 : onProgress(buffer.byteLength);
+          }
+        }
+      });
+    };
+    addPresignedParams = (url, presignedUrlPayload) => {
+      const urlObj = new URL(url);
+      for (const [key, value] of Object.entries(presignedUrlPayload.params)) {
+        urlObj.searchParams.set(key, value);
+      }
+      urlObj.searchParams.set(
+        "vercel-blob-delegation",
+        presignedUrlPayload.delegationToken
+      );
+      urlObj.searchParams.set(
+        "vercel-blob-signature",
+        presignedUrlPayload.signature
+      );
+      return urlObj.toString();
+    };
+    debugIsActive = false;
+    try {
+      if (((_a = process.env.DEBUG) == null ? void 0 : _a.includes("blob")) || ((_b = process.env.NEXT_PUBLIC_DEBUG) == null ? void 0 : _b.includes("blob"))) {
+        debugIsActive = true;
+      }
+    } catch {
+    }
+    DOMException2 = (_a2 = globalThis.DOMException) != null ? _a2 : (() => {
+      try {
+        atob("~");
+      } catch (err) {
+        return Object.getPrototypeOf(err).constructor;
+      }
+    })();
+    objectToString = Object.prototype.toString;
+    isError = (value) => objectToString.call(value) === "[object Error]";
+    errorMessages = /* @__PURE__ */ new Set([
+      "network error",
+      // Chrome
+      "Failed to fetch",
+      // Chrome
+      "NetworkError when attempting to fetch resource.",
+      // Firefox
+      "The Internet connection appears to be offline.",
+      // Safari 16
+      "Load failed",
+      // Safari 17+
+      "Network request failed",
+      // `cross-fetch`
+      "fetch failed",
+      // Undici (Node.js)
+      "terminated"
+      // Undici (Node.js)
+    ]);
+    hasFetch = typeof import_undici.fetch === "function";
+    hasFetchWithUploadProgress = hasFetch && supportsRequestStreams;
+    CHUNK_SIZE = 64 * 1024;
+    blobFetch = async ({
+      input,
+      init,
+      onUploadProgress
+    }) => {
+      debug("using fetch");
+      let body;
+      if (init.body) {
+        if (onUploadProgress) {
+          const stream = await toReadableStream(init.body);
+          let loaded = 0;
+          const chunkTransformStream = createChunkTransformStream(
+            CHUNK_SIZE,
+            (newLoaded) => {
+              loaded += newLoaded;
+              onUploadProgress(loaded);
+            }
+          );
+          body = stream.pipeThrough(chunkTransformStream);
+        } else {
+          body = init.body;
+        }
+      }
+      const duplex = supportsRequestStreams && body && isStream(body) ? "half" : void 0;
+      return (0, import_undici.fetch)(
+        input,
+        // @ts-expect-error -- Blob and Nodejs Blob are triggering type errors, fine with it
+        {
+          ...init,
+          ...init.body ? { body } : {},
+          duplex
+        }
+      );
+    };
+    hasXhr = typeof XMLHttpRequest !== "undefined";
+    blobXhr = async ({
+      input,
+      init,
+      onUploadProgress
+    }) => {
+      debug("using xhr");
+      let body = null;
+      if (init.body) {
+        if (isReadableStream(init.body)) {
+          body = await new Response(init.body).blob();
+        } else {
+          body = init.body;
+        }
+      }
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(init.method || "GET", input.toString(), true);
+        if (onUploadProgress) {
+          xhr.upload.addEventListener("progress", (event) => {
+            if (event.lengthComputable) {
+              onUploadProgress(event.loaded);
+            }
+          });
+        }
+        xhr.onload = () => {
+          var _a3;
+          if ((_a3 = init.signal) == null ? void 0 : _a3.aborted) {
+            reject(new DOMException("The user aborted the request.", "AbortError"));
+            return;
+          }
+          const headers = new Headers();
+          const rawHeaders = xhr.getAllResponseHeaders().trim().split(/[\r\n]+/);
+          rawHeaders.forEach((line) => {
+            const parts = line.split(": ");
+            const key = parts.shift();
+            const value = parts.join(": ");
+            if (key) headers.set(key.toLowerCase(), value);
+          });
+          const response = new Response(xhr.response, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers
+          });
+          resolve(response);
+        };
+        xhr.onerror = () => {
+          reject(new TypeError("Network request failed"));
+        };
+        xhr.ontimeout = () => {
+          reject(new TypeError("Network request timed out"));
+        };
+        xhr.onabort = () => {
+          reject(new DOMException("The user aborted a request.", "AbortError"));
+        };
+        if (init.headers) {
+          const headers = new Headers(init.headers);
+          headers.forEach((value, key) => {
+            xhr.setRequestHeader(key, value);
+          });
+        }
+        if (init.signal) {
+          init.signal.addEventListener("abort", () => {
+            xhr.abort();
+          });
+          if (init.signal.aborted) {
+            xhr.abort();
+            return;
+          }
+        }
+        xhr.send(body);
+      });
+    };
+    blobRequest = async ({
+      input,
+      init,
+      onUploadProgress
+    }) => {
+      if (onUploadProgress) {
+        if (hasFetchWithUploadProgress) {
+          return blobFetch({ input, init, onUploadProgress });
+        }
+        if (hasXhr) {
+          return blobXhr({ input, init, onUploadProgress });
+        }
+      }
+      if (hasFetch) {
+        return blobFetch({ input, init });
+      }
+      if (hasXhr) {
+        return blobXhr({ input, init });
+      }
+      throw new Error("No request implementation available");
+    };
+    MAXIMUM_PATHNAME_LENGTH = 950;
+    BlobAccessError = class extends BlobError {
+      constructor() {
+        super("Access denied, please provide a valid token for this resource.");
+      }
+    };
+    BlobOidcEnvironmentNotAllowedError = class extends BlobError {
+      constructor(message) {
+        super(
+          message != null ? message : "OIDC is enabled for this project, but not for this token's environment."
+        );
+      }
+    };
+    BlobContentTypeNotAllowedError = class extends BlobError {
+      constructor(message) {
+        super(`Content type mismatch, ${message}.`);
+      }
+    };
+    BlobPathnameMismatchError = class extends BlobError {
+      constructor(message) {
+        super(
+          `Pathname mismatch, ${message}. Check the pathname used in upload() or put() matches the one from the client token.`
+        );
+      }
+    };
+    BlobClientTokenExpiredError = class extends BlobError {
+      constructor() {
+        super("Client token has expired.");
+      }
+    };
+    BlobFileTooLargeError = class extends BlobError {
+      constructor(message) {
+        super(`File is too large, ${message}.`);
+      }
+    };
+    BlobStoreNotFoundError = class extends BlobError {
+      constructor() {
+        super("This store does not exist.");
+      }
+    };
+    BlobStoreSuspendedError = class extends BlobError {
+      constructor() {
+        super("This store has been suspended.");
+      }
+    };
+    BlobUnknownError = class extends BlobError {
+      constructor() {
+        super("Unknown error, please visit https://vercel.com/help.");
+      }
+    };
+    BlobNotFoundError = class extends BlobError {
+      constructor() {
+        super("The requested blob does not exist");
+      }
+    };
+    BlobServiceNotAvailable = class extends BlobError {
+      constructor() {
+        super("The blob service is currently not available. Please try again.");
+      }
+    };
+    BlobServiceRateLimited = class extends BlobError {
+      constructor(seconds) {
+        super(
+          `Too many requests please lower the number of concurrent requests ${seconds ? ` - try again in ${seconds} seconds` : ""}.`
+        );
+        this.retryAfter = seconds != null ? seconds : 0;
+      }
+    };
+    BlobRequestAbortedError = class extends BlobError {
+      constructor() {
+        super("The request was aborted.");
+      }
+    };
+    BlobPreconditionFailedError = class extends BlobError {
+      constructor() {
+        super("Precondition failed: ETag mismatch.");
+      }
+    };
+    BLOB_API_VERSION = 12;
+    optimizeImageFormatToMimeType = {
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      avif: "image/avif"
+    };
+    putOptionHeaderMap = {
+      cacheControlMaxAge: "x-cache-control-max-age",
+      addRandomSuffix: "x-add-random-suffix",
+      allowOverwrite: "x-allow-overwrite",
+      contentType: "x-content-type",
+      access: "x-vercel-blob-access",
+      ifMatch: "x-if-match"
+    };
+    maxConcurrentUploads = typeof window !== "undefined" ? 6 : 8;
+    partSizeInBytes = 8 * 1024 * 1024;
+    maxBytesInMemory = maxConcurrentUploads * partSizeInBytes * 2;
+    BLOB_PRESIGN_QUERY_VALID_UNTIL = "vercel-blob-valid-until";
+    BLOB_PRESIGN_QUERY_MAXIMUM_SIZE = "vercel-blob-maximum-size-in-bytes";
+    BLOB_PRESIGN_QUERY_ALLOWED_CONTENT_TYPES = "vercel-blob-allowed-content-types";
+    BLOB_PRESIGN_QUERY_ADD_RANDOM_SUFFIX = "vercel-blob-add-random-suffix";
+    BLOB_PRESIGN_QUERY_ALLOW_OVERWRITE = "vercel-blob-allow-overwrite";
+    BLOB_PRESIGN_QUERY_CACHE_CONTROL_MAX_AGE = "vercel-blob-cache-control-max-age";
+    BLOB_PRESIGN_QUERY_IF_MATCH = "vercel-blob-if-match";
+    BLOB_PRESIGN_QUERY_CALLBACK_URL = "vercel-blob-callback-url";
+    BLOB_PRESIGN_QUERY_CALLBACK_TOKEN_PAYLOAD = "vercel-blob-callback-token-payload";
+    PRESIGN_CANONICAL_QUERY_KEYS = [
+      BLOB_PRESIGN_QUERY_ADD_RANDOM_SUFFIX,
+      BLOB_PRESIGN_QUERY_ALLOW_OVERWRITE,
+      BLOB_PRESIGN_QUERY_ALLOWED_CONTENT_TYPES,
+      BLOB_PRESIGN_QUERY_CACHE_CONTROL_MAX_AGE,
+      BLOB_PRESIGN_QUERY_CALLBACK_TOKEN_PAYLOAD,
+      BLOB_PRESIGN_QUERY_CALLBACK_URL,
+      BLOB_PRESIGN_QUERY_IF_MATCH,
+      BLOB_PRESIGN_QUERY_MAXIMUM_SIZE,
+      BLOB_PRESIGN_QUERY_VALID_UNTIL
+    ];
+    MAX_PRESIGN_CALLBACK_URL_CHARS = 4096;
+    MAX_PRESIGN_CALLBACK_TOKEN_PAYLOAD_CHARS = 8192;
+    MAX_PRESIGN_CACHE_CONTROL_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+    MAX_PRESIGN_IF_MATCH_LENGTH = 256;
+    IF_MATCH_CONTROL_CHARS_RE = /[\x00-\x1f\x7f]/;
+    utf8Encoder = new TextEncoder();
+  }
+});
+
+// node_modules/@vercel/blob/dist/index.js
+var dist_exports = {};
+__export(dist_exports, {
+  BlobAccessError: () => BlobAccessError,
+  BlobClientTokenExpiredError: () => BlobClientTokenExpiredError,
+  BlobContentTypeNotAllowedError: () => BlobContentTypeNotAllowedError,
+  BlobError: () => BlobError,
+  BlobFileTooLargeError: () => BlobFileTooLargeError,
+  BlobNotFoundError: () => BlobNotFoundError,
+  BlobPathnameMismatchError: () => BlobPathnameMismatchError,
+  BlobPreconditionFailedError: () => BlobPreconditionFailedError,
+  BlobRequestAbortedError: () => BlobRequestAbortedError,
+  BlobServiceNotAvailable: () => BlobServiceNotAvailable,
+  BlobServiceRateLimited: () => BlobServiceRateLimited,
+  BlobStoreNotFoundError: () => BlobStoreNotFoundError,
+  BlobStoreSuspendedError: () => BlobStoreSuspendedError,
+  BlobUnknownError: () => BlobUnknownError,
+  completeMultipartUpload: () => completeMultipartUpload2,
+  copy: () => copy,
+  createFolder: () => createFolder,
+  createMultipartUpload: () => createMultipartUpload2,
+  createMultipartUploader: () => createMultipartUploader,
+  del: () => del,
+  get: () => get,
+  getDownloadUrl: () => getDownloadUrl,
+  head: () => head,
+  issueSignedToken: () => issueSignedToken,
+  list: () => list,
+  parseStoreIdFromDelegationToken: () => parseStoreIdFromDelegationToken,
+  parseStoreIdFromPresignedUrl: () => parseStoreIdFromPresignedUrl,
+  presignUrl: () => presignUrl,
+  put: () => put,
+  putFromUrl: () => putFromUrl,
+  putImage: () => putImage,
+  rename: () => rename,
+  uploadPart: () => uploadPart2
+});
+async function del(urlOrPathname, options) {
+  const urls = Array.isArray(urlOrPathname) ? urlOrPathname : [urlOrPathname];
+  if ((options == null ? void 0 : options.ifMatch) && urls.length > 1) {
+    throw new BlobError("ifMatch can only be used when deleting a single URL.");
+  }
+  const headers = {
+    "content-type": "application/json"
+  };
+  if (options == null ? void 0 : options.ifMatch) {
+    headers["x-if-match"] = options.ifMatch;
+  }
+  await requestApi(
+    "/delete",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ urls }),
+      signal: options == null ? void 0 : options.abortSignal
+    },
+    options
+  );
+}
+async function head(urlOrPathname, options) {
+  const searchParams = new URLSearchParams({ url: urlOrPathname });
+  const response = await requestApi(
+    `?${searchParams.toString()}`,
+    // HEAD can't have body as a response, so we use GET
+    {
+      method: "GET",
+      signal: options == null ? void 0 : options.abortSignal
+    },
+    options
+  );
+  return {
+    url: response.url,
+    downloadUrl: response.downloadUrl,
+    pathname: response.pathname,
+    size: response.size,
+    contentType: response.contentType,
+    contentDisposition: response.contentDisposition,
+    cacheControl: response.cacheControl,
+    uploadedAt: new Date(response.uploadedAt),
+    etag: response.etag
+  };
+}
+function extractPathnameFromUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.pathname.slice(1);
+  } catch {
+    return url;
+  }
+}
+async function get(urlOrPathname, options) {
+  if (!urlOrPathname) {
+    throw new BlobError("url or pathname is required");
+  }
+  if (!options) {
+    throw new BlobError("missing options, see usage");
+  }
+  if (options.access !== "public" && options.access !== "private") {
+    throw new BlobError(
+      'access must be "private" or "public", see https://vercel.com/docs/vercel-blob'
+    );
+  }
+  const auth = await resolveBlobAuth(options);
+  if (auth.kind === "presigned") {
+    throw new BlobError("Presigned URLs are not supported for the get method");
+  }
+  let blobUrl;
+  let pathname;
+  const access = options.access;
+  if (isUrl(urlOrPathname)) {
+    blobUrl = urlOrPathname;
+    pathname = extractPathnameFromUrl(urlOrPathname);
+    try {
+      const { hostname } = new URL(blobUrl);
+      if (!hostname.endsWith(".blob.vercel-storage.com")) {
+        throw new BlobError(
+          "Invalid URL: the URL does not point to a Vercel Blob store. Use a pathname instead, see https://vercel.com/docs/vercel-blob"
+        );
+      }
+    } catch (error) {
+      if (error instanceof BlobError) throw error;
+      throw new BlobError("Invalid URL: unable to parse the provided URL");
+    }
+  } else {
+    if (!auth.storeId) {
+      throw new BlobError("Invalid token: unable to extract store ID");
+    }
+    pathname = urlOrPathname;
+    blobUrl = constructBlobUrl(auth.storeId, pathname, access);
+  }
+  const requestHeaders = {
+    ...options.ifNoneMatch ? { "If-None-Match": options.ifNoneMatch } : {},
+    authorization: `Bearer ${auth.token}`,
+    ...options.headers
+    // low-level escape hatch, applied last to override anything
+  };
+  let fetchUrl = blobUrl;
+  if (options.useCache === false && access === "private") {
+    const url = new URL(blobUrl);
+    url.searchParams.set("cache", "0");
+    fetchUrl = url.toString();
+  }
+  const response = await (0, import_undici2.fetch)(fetchUrl, {
+    method: "GET",
+    headers: requestHeaders,
+    signal: options.abortSignal
+  });
+  if (response.status === 304) {
+    const downloadUrlObj = new URL(blobUrl);
+    downloadUrlObj.searchParams.set("download", "1");
+    const lastModified2 = response.headers.get("last-modified");
+    return {
+      statusCode: 304,
+      stream: null,
+      headers: response.headers,
+      blob: {
+        url: blobUrl,
+        downloadUrl: downloadUrlObj.toString(),
+        pathname,
+        contentType: null,
+        contentDisposition: response.headers.get("content-disposition") || "",
+        cacheControl: response.headers.get("cache-control") || "",
+        size: null,
+        uploadedAt: lastModified2 ? new Date(lastModified2) : /* @__PURE__ */ new Date(),
+        etag: response.headers.get("etag") || ""
+      }
+    };
+  }
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new BlobError(
+      `Failed to fetch blob: ${response.status} ${response.statusText}`
+    );
+  }
+  const stream = response.body;
+  if (!stream) {
+    throw new BlobError("Response body is null");
+  }
+  const contentLength = response.headers.get("content-length");
+  const lastModified = response.headers.get("last-modified");
+  const downloadUrl = new URL(blobUrl);
+  downloadUrl.searchParams.set("download", "1");
+  return {
+    statusCode: 200,
+    stream,
+    headers: response.headers,
+    blob: {
+      url: blobUrl,
+      downloadUrl: downloadUrl.toString(),
+      pathname,
+      contentType: response.headers.get("content-type") || "application/octet-stream",
+      contentDisposition: response.headers.get("content-disposition") || "",
+      cacheControl: response.headers.get("cache-control") || "",
+      size: contentLength ? parseInt(contentLength, 10) : 0,
+      uploadedAt: lastModified ? new Date(lastModified) : /* @__PURE__ */ new Date(),
+      etag: response.headers.get("etag") || ""
+    }
+  };
+}
+async function list(options) {
+  var _a3;
+  const searchParams = new URLSearchParams();
+  if (options == null ? void 0 : options.limit) {
+    searchParams.set("limit", options.limit.toString());
+  }
+  if (options == null ? void 0 : options.prefix) {
+    searchParams.set("prefix", options.prefix);
+  }
+  if (options == null ? void 0 : options.cursor) {
+    searchParams.set("cursor", options.cursor);
+  }
+  if (options == null ? void 0 : options.mode) {
+    searchParams.set("mode", options.mode);
+  }
+  const response = await requestApi(
+    `?${searchParams.toString()}`,
+    {
+      method: "GET",
+      signal: options == null ? void 0 : options.abortSignal
+    },
+    options
+  );
+  if ((options == null ? void 0 : options.mode) === "folded") {
+    return {
+      folders: (_a3 = response.folders) != null ? _a3 : [],
+      cursor: response.cursor,
+      hasMore: response.hasMore,
+      blobs: response.blobs.map(mapBlobResult)
+    };
+  }
+  return {
+    cursor: response.cursor,
+    hasMore: response.hasMore,
+    blobs: response.blobs.map(mapBlobResult)
+  };
+}
+function mapBlobResult(blobResult) {
+  return {
+    url: blobResult.url,
+    downloadUrl: blobResult.downloadUrl,
+    pathname: blobResult.pathname,
+    size: blobResult.size,
+    uploadedAt: new Date(blobResult.uploadedAt),
+    etag: blobResult.etag
+  };
+}
+async function copy(fromUrlOrPathname, toPathname, options) {
+  if (!options) {
+    throw new BlobError("missing options, see usage");
+  }
+  if (options.access !== "public" && options.access !== "private") {
+    throw new BlobError(
+      'access must be "private" or "public", see https://vercel.com/docs/vercel-blob'
+    );
+  }
+  if (toPathname.length > MAXIMUM_PATHNAME_LENGTH) {
+    throw new BlobError(
+      `pathname is too long, maximum length is ${MAXIMUM_PATHNAME_LENGTH}`
+    );
+  }
+  for (const invalidCharacter of disallowedPathnameCharacters) {
+    if (toPathname.includes(invalidCharacter)) {
+      throw new BlobError(
+        `pathname cannot contain "${invalidCharacter}", please encode it if needed`
+      );
+    }
+  }
+  const headers = {};
+  headers["x-vercel-blob-access"] = options.access;
+  if (options.addRandomSuffix !== void 0) {
+    headers["x-add-random-suffix"] = options.addRandomSuffix ? "1" : "0";
+  }
+  if (options.allowOverwrite !== void 0) {
+    headers["x-allow-overwrite"] = options.allowOverwrite ? "1" : "0";
+  }
+  if (options.contentType) {
+    headers["x-content-type"] = options.contentType;
+  }
+  if (options.cacheControlMaxAge !== void 0) {
+    headers["x-cache-control-max-age"] = options.cacheControlMaxAge.toString();
+  }
+  if (options.ifMatch) {
+    headers["x-if-match"] = options.ifMatch;
+  }
+  const params = new URLSearchParams({
+    pathname: toPathname,
+    fromUrl: fromUrlOrPathname
+  });
+  const response = await requestApi(
+    `?${params.toString()}`,
+    {
+      method: "PUT",
+      headers,
+      signal: options.abortSignal
+    },
+    options
+  );
+  return {
+    url: response.url,
+    downloadUrl: response.downloadUrl,
+    pathname: response.pathname,
+    contentType: response.contentType,
+    contentDisposition: response.contentDisposition,
+    etag: response.etag
+  };
+}
+async function rename(fromUrlOrPathname, toPathname, options) {
+  if (!options) {
+    throw new BlobError("missing options, see usage");
+  }
+  if (options.access !== "public" && options.access !== "private") {
+    throw new BlobError(
+      'access must be "private" or "public", see https://vercel.com/docs/vercel-blob'
+    );
+  }
+  if (toPathname.length > MAXIMUM_PATHNAME_LENGTH) {
+    throw new BlobError(
+      `pathname is too long, maximum length is ${MAXIMUM_PATHNAME_LENGTH}`
+    );
+  }
+  for (const invalidCharacter of disallowedPathnameCharacters) {
+    if (toPathname.includes(invalidCharacter)) {
+      throw new BlobError(
+        `pathname cannot contain "${invalidCharacter}", please encode it if needed`
+      );
+    }
+  }
+  const headers = {};
+  headers["x-vercel-blob-access"] = options.access;
+  if (options.addRandomSuffix !== void 0) {
+    headers["x-add-random-suffix"] = options.addRandomSuffix ? "1" : "0";
+  }
+  if (options.allowOverwrite !== void 0) {
+    headers["x-allow-overwrite"] = options.allowOverwrite ? "1" : "0";
+  }
+  if (options.contentType) {
+    headers["x-content-type"] = options.contentType;
+  }
+  if (options.cacheControlMaxAge !== void 0) {
+    headers["x-cache-control-max-age"] = options.cacheControlMaxAge.toString();
+  }
+  if (options.ifMatch) {
+    headers["x-if-match"] = options.ifMatch;
+  }
+  const params = new URLSearchParams({
+    pathname: toPathname,
+    fromUrl: fromUrlOrPathname
+  });
+  const response = await requestApi(
+    `/rename?${params.toString()}`,
+    {
+      method: "POST",
+      headers,
+      signal: options.abortSignal
+    },
+    options
+  );
+  return {
+    url: response.url,
+    downloadUrl: response.downloadUrl,
+    pathname: response.pathname,
+    contentType: response.contentType,
+    contentDisposition: response.contentDisposition,
+    etag: response.etag
+  };
+}
+function toPutBlobResult(response) {
+  return {
+    url: response.url,
+    downloadUrl: response.downloadUrl,
+    pathname: response.pathname,
+    contentType: response.contentType,
+    contentDisposition: response.contentDisposition,
+    etag: response.etag
+  };
+}
+async function putImage(pathname, bodyOrUrl, options) {
+  if (!(options == null ? void 0 : options.optimizeImage)) {
+    throw new BlobError("optimizeImage is required, see usage");
+  }
+  const { optimizeImage } = options;
+  if (bodyOrUrl instanceof URL) {
+    if (bodyOrUrl.protocol !== "http:" && bodyOrUrl.protocol !== "https:") {
+      throw new BlobError("the source URL must use the http(s) protocol");
+    }
+    const putOptions2 = await createPutOptions({ pathname, options });
+    const headers2 = createPutHeaders(
+      ["cacheControlMaxAge", "addRandomSuffix", "allowOverwrite", "ifMatch"],
+      putOptions2
+    );
+    const params2 = new URLSearchParams({
+      pathname,
+      url: bodyOrUrl.toString()
+    });
+    addOptimizeImageParams(params2, optimizeImage);
+    const response2 = await requestApi(
+      `/put-from-url?${params2.toString()}`,
+      {
+        method: "POST",
+        headers: headers2,
+        signal: putOptions2.abortSignal
+      },
+      putOptions2
+    );
+    return toPutBlobResult(response2);
+  }
+  if (!bodyOrUrl) {
+    throw new BlobError("body is required");
+  }
+  if (isPlainObject(bodyOrUrl)) {
+    throw new BlobError(
+      "Body must be a string, buffer or stream. You sent a plain JavaScript object, double check what you're trying to upload."
+    );
+  }
+  const putOptions = await createPutOptions({ pathname, options });
+  const headers = createPutHeaders(
+    ["cacheControlMaxAge", "addRandomSuffix", "allowOverwrite", "ifMatch"],
+    putOptions
+  );
+  validateOptimizeImageSourceContentType(
+    typeof Blob !== "undefined" && bodyOrUrl instanceof Blob ? bodyOrUrl.type : void 0
+  );
+  const params = new URLSearchParams({ pathname });
+  addOptimizeImageParams(params, optimizeImage);
+  const response = await requestApi(
+    `/put-optimized?${params.toString()}`,
+    {
+      method: "POST",
+      body: bodyOrUrl,
+      headers,
+      signal: putOptions.abortSignal
+    },
+    putOptions
+  );
+  return toPutBlobResult(response);
+}
+async function putFromUrl(pathname, url, options) {
+  const putOptions = await createPutOptions({ pathname, options });
+  if (!url) {
+    throw new BlobError("url is required");
+  }
+  if (!putOptions.optimizeImage) {
+    throw new BlobError("optimizeImage is required, see usage");
+  }
+  const headers = createPutHeaders(
+    ["cacheControlMaxAge", "addRandomSuffix", "allowOverwrite", "ifMatch"],
+    putOptions
+  );
+  const params = new URLSearchParams({ pathname, url });
+  addOptimizeImageParams(params, putOptions.optimizeImage);
+  const response = await requestApi(
+    `/put-from-url?${params.toString()}`,
+    {
+      method: "POST",
+      headers,
+      signal: putOptions.abortSignal
+    },
+    putOptions
+  );
+  return {
+    url: response.url,
+    downloadUrl: response.downloadUrl,
+    pathname: response.pathname,
+    contentType: response.contentType,
+    contentDisposition: response.contentDisposition,
+    etag: response.etag
+  };
+}
+var import_undici2, put, createMultipartUpload2, createMultipartUploader, uploadPart2, completeMultipartUpload2;
+var init_dist = __esm({
+  "node_modules/@vercel/blob/dist/index.js"() {
+    init_chunk_YYMLUMXS();
+    import_undici2 = __toESM(require_undici(), 1);
+    put = createPutMethod({
+      allowedOptions: [
+        "cacheControlMaxAge",
+        "addRandomSuffix",
+        "allowOverwrite",
+        "contentType",
+        "ifMatch"
+      ]
+    });
+    createMultipartUpload2 = createCreateMultipartUploadMethod({
+      allowedOptions: [
+        "cacheControlMaxAge",
+        "addRandomSuffix",
+        "allowOverwrite",
+        "contentType",
+        "ifMatch"
+      ]
+    });
+    createMultipartUploader = createCreateMultipartUploaderMethod({
+      allowedOptions: [
+        "cacheControlMaxAge",
+        "addRandomSuffix",
+        "allowOverwrite",
+        "contentType",
+        "ifMatch"
+      ]
+    });
+    uploadPart2 = createUploadPartMethod({
+      allowedOptions: [
+        "cacheControlMaxAge",
+        "addRandomSuffix",
+        "allowOverwrite",
+        "contentType"
+      ]
+    });
+    completeMultipartUpload2 = createCompleteMultipartUploadMethod({
+      allowedOptions: [
+        "cacheControlMaxAge",
+        "addRandomSuffix",
+        "allowOverwrite",
+        "contentType"
+      ]
+    });
+  }
+});
+
 // server/vercel-entry.ts
 var vercel_entry_exports = {};
 __export(vercel_entry_exports, {
@@ -44896,31 +47477,66 @@ var TEXT_MODELS = {
   "gpt-5-mini": "gpt-5-mini",
   "gpt-5": "gpt-5",
   "gpt-5.1": "gpt-5.1",
-  "gpt-5-nano": "gpt-5-nano"
+  "gpt-5-nano": "gpt-5-nano",
+  // Kira official models per https://kiraai.vn/documents/
+  "kira-3.5-pro": "kira-3.5-pro",
+  "kira-3.5-flash": "kira-3.5-flash",
+  "kira-2.5-pro": "kira-2.5-pro",
+  "kira-2.5-flash": "kira-2.5-flash",
+  "kira-mini-1.0": "kira-mini-1.0",
+  // legacy aliases
+  "kira-auto": "kira-3.5-flash",
+  "kira-2.0": "kira-2.5-flash",
+  "kira-3.0": "kira-3.5-flash"
 };
 var DEFAULT_TEXT_MODEL = "gpt-5-mini";
 var LLMError = class extends Error {
 };
-function resolveKey(env) {
-  const apiKey = env.OPENAI_API_KEY;
+function resolvePrimary(env) {
+  const apiKey = env.OPENAI_API_KEY?.trim();
+  if (!apiKey) return null;
   const baseURL = (env.OPENAI_BASE_URL || "https://www.genspark.ai/api/llm_proxy/v1").replace(/\/$/, "");
-  if (!apiKey) throw new LLMError("Ch\u01B0a c\u1EA5u h\xECnh OPENAI_API_KEY");
-  return { apiKey, baseURL };
+  return { apiKey, baseURL, label: "primary" };
+}
+function resolveExplabs(env) {
+  const apiKey = env.EXPLABS_API_KEY?.trim() || env.EXPLABS_API_KEY?.trim();
+  if (!apiKey) return null;
+  const rawBase = env.EXPLABS_BASE_URL || env.EXPLABS_BASE_URL || "https://api.explabs.ai/v1";
+  const baseURL = String(rawBase).replace(/\/$/, "");
+  return { apiKey, baseURL, label: "explabs" };
+}
+function resolveKira(env) {
+  const apiKey = env.KIRA_API_KEY?.trim() || env.KIRA_API_KEY?.trim();
+  if (!apiKey) return null;
+  const rawBase = env.KIRA_BASE_URL || env.KIRA_BASE_URL || "https://kiraai.vn/api/v1";
+  const baseURL = String(rawBase).replace(/\/$/, "");
+  return { apiKey, baseURL, label: "kira" };
+}
+function resolveAll(env) {
+  const list2 = [];
+  const p2 = resolvePrimary(env);
+  if (p2) list2.push(p2);
+  const e = resolveExplabs(env);
+  if (e) list2.push(e);
+  const k = resolveKira(env);
+  if (k) list2.push(k);
+  return list2;
 }
 function hasLLM(env) {
-  return Boolean(env.OPENAI_API_KEY);
+  return resolveAll(env).length > 0;
 }
-async function ask(env, system, user, model = DEFAULT_TEXT_MODEL, timeoutMs = 5e4) {
-  const { apiKey, baseURL } = resolveKey(env);
-  const chosen = TEXT_MODELS[model] || DEFAULT_TEXT_MODEL;
+async function callChatCompletion(key, system, user, model, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${baseURL}/chat/completions`, {
+    let chosen = TEXT_MODELS[model] || model || DEFAULT_TEXT_MODEL;
+    if (key.label === "explabs" && globalThis.process?.env?.EXPLABS_MODEL) {
+    }
+    const res = await fetch(`${key.baseURL}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
+        Authorization: `Bearer ${key.apiKey}`
       },
       body: JSON.stringify({
         model: chosen,
@@ -44933,20 +47549,62 @@ async function ask(env, system, user, model = DEFAULT_TEXT_MODEL, timeoutMs = 5e
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      throw new LLMError(`LLM ${res.status}: ${detail.slice(0, 300)}`);
+      throw new LLMError(`LLM ${key.label} ${res.status}: ${detail.slice(0, 400)}`);
     }
     const data = await res.json();
-    const text = data?.choices?.[0]?.message?.content;
+    let text;
+    if (typeof data?.choices?.[0]?.message?.content === "string") {
+      text = data.choices[0].message.content;
+    } else if (typeof data?.choices?.[0]?.text === "string") {
+      text = data.choices[0].text;
+    } else if (typeof data?.output?.[0]?.content?.[0]?.text === "string") {
+      text = data.output[0].content[0].text;
+    } else if (typeof data?.output_text === "string") {
+      text = data.output_text;
+    }
     if (typeof text !== "string" || !text.trim()) {
-      throw new LLMError("LLM tr\u1EA3 v\u1EC1 n\u1ED9i dung tr\u1ED1ng");
+      throw new LLMError(`LLM ${key.label} tr\u1EA3 v\u1EC1 n\u1ED9i dung tr\u1ED1ng`);
     }
     return text.trim();
   } catch (err) {
-    if (err?.name === "AbortError") throw new LLMError("LLM qu\xE1 th\u1EDDi gian ch\u1EDD");
+    if (err?.name === "AbortError") throw new LLMError(`LLM ${key.label} qu\xE1 th\u1EDDi gian ch\u1EDD`);
     throw err instanceof LLMError ? err : new LLMError(String(err?.message || err));
   } finally {
     clearTimeout(timer);
   }
+}
+async function ask(env, system, user, model = DEFAULT_TEXT_MODEL, timeoutMs = 5e4) {
+  const keys = resolveAll(env);
+  if (!keys.length) throw new LLMError("Ch\u01B0a c\u1EA5u h\xECnh OPENAI_API_KEY, EXPLABS_API_KEY ho\u1EB7c KIRA_API_KEY");
+  let lastError = null;
+  const perProviderTimeout = keys.length > 1 ? Math.floor(timeoutMs / keys.length) : timeoutMs;
+  for (const k of keys) {
+    try {
+      let effectiveModel = model;
+      if (k.label === "explabs" && env.EXPLABS_MODEL) {
+        effectiveModel = env.EXPLABS_MODEL;
+      }
+      if (k.label === "kira" && env.KIRA_MODEL) {
+        effectiveModel = env.KIRA_MODEL;
+      }
+      if (k.label === "kira" && !env.KIRA_MODEL && model.startsWith("gpt-")) {
+        effectiveModel = "kira-3.5-flash";
+      }
+      if (k.label === "kira" && effectiveModel === "kira-auto") {
+        effectiveModel = "kira-3.5-flash";
+      }
+      const result = await callChatCompletion(k, system, user, effectiveModel, perProviderTimeout);
+      if (k.label !== "primary") {
+        console.log(`[llm] fallback success via ${k.label}`);
+      }
+      return result;
+    } catch (e) {
+      lastError = e;
+      console.warn(`[llm] ${k.label} failed:`, String(e?.message || e).slice(0, 300));
+      continue;
+    }
+  }
+  throw lastError instanceof LLMError ? lastError : new LLMError(String(lastError?.message || lastError));
 }
 function extractJSON(text) {
   let cleaned = (text || "").trim();
@@ -45254,8 +47912,8 @@ async function refineIdea(env, opts) {
   ].join("\n");
   try {
     const data = await askJSON(env, REFINE_SYSTEM, user, opts.model || DEFAULT_TEXT_MODEL);
-    const list = Array.isArray(data?.refined) ? data.refined : [];
-    const cleaned = list.filter((r) => r && typeof r === "object" && String(r.improved_topic || "").trim()).slice(0, 3).map((r) => ({
+    const list2 = Array.isArray(data?.refined) ? data.refined : [];
+    const cleaned = list2.filter((r) => r && typeof r === "object" && String(r.improved_topic || "").trim()).slice(0, 3).map((r) => ({
       headline: String(r.headline || "H\u01B0\u1EDBng c\u1EA3i ti\u1EBFn").trim(),
       improved_topic: String(r.improved_topic).trim().slice(0, 160),
       hook: String(r.hook || "").trim(),
@@ -45306,1598 +47964,8 @@ function fallbackRefine(topic) {
   ];
 }
 
-// node_modules/is-node-process/lib/index.mjs
-function isNodeProcess() {
-  if (typeof navigator !== "undefined" && navigator.product === "ReactNative") {
-    return true;
-  }
-  if (typeof process !== "undefined") {
-    const type = process.type;
-    if (type === "renderer" || type === "worker") {
-      return false;
-    }
-    return !!(process.versions && process.versions.node);
-  }
-  return false;
-}
-
-// node_modules/@vercel/blob/dist/chunk-YYMLUMXS.js
-var import_is_buffer = __toESM(require_is_buffer(), 1);
-var import_stream = require("stream");
-var import_oidc = __toESM(require_dist3(), 1);
-var import_async_retry = __toESM(require_lib4(), 1);
-var import_undici = __toESM(require_undici(), 1);
-var import_throttleit = __toESM(require_throttleit(), 1);
-var import_throttleit2 = __toESM(require_throttleit(), 1);
-var supportsNewBlobFromArrayBuffer = new Promise((resolve) => {
-  try {
-    const helloAsArrayBuffer = new Uint8Array([104, 101, 108, 108, 111]);
-    const blob = new Blob([helloAsArrayBuffer]);
-    blob.text().then((text) => {
-      resolve(text === "hello");
-    }).catch(() => {
-      resolve(false);
-    });
-  } catch {
-    resolve(false);
-  }
-});
-async function toReadableStream(value) {
-  if (value instanceof ReadableStream) {
-    return value;
-  }
-  if (value instanceof Blob) {
-    return value.stream();
-  }
-  if (isNodeJsReadableStream(value)) {
-    return import_stream.Readable.toWeb(value);
-  }
-  let streamValue;
-  if (value instanceof ArrayBuffer) {
-    streamValue = new Uint8Array(value);
-  } else if (isNodeJsBuffer(value)) {
-    streamValue = value;
-  } else {
-    streamValue = stringToUint8Array(value);
-  }
-  if (await supportsNewBlobFromArrayBuffer) {
-    return new Blob([streamValue]).stream();
-  }
-  return new ReadableStream({
-    start(controller) {
-      controller.enqueue(streamValue);
-      controller.close();
-    }
-  });
-}
-function isNodeJsReadableStream(value) {
-  return typeof value === "object" && typeof value.pipe === "function" && value.readable && typeof value._read === "function" && // @ts-expect-error _readableState does exists on Readable
-  typeof value._readableState === "object";
-}
-function stringToUint8Array(s) {
-  const enc = new TextEncoder();
-  return enc.encode(s);
-}
-function isNodeJsBuffer(value) {
-  return (0, import_is_buffer.default)(value);
-}
-async function getVercelOidcToken2() {
-  try {
-    const token = (await (0, import_oidc.getVercelOidcToken)()).trim();
-    return token === "" ? void 0 : token;
-  } catch {
-    return void 0;
-  }
-}
-var parseRegExp = /^((-|\+)?(\d+(?:\.\d+)?)) *(kb|mb|gb|tb|pb)$/i;
-var map = {
-  b: 1,
-  kb: 1 << 10,
-  mb: 1 << 20,
-  gb: 1 << 30,
-  tb: 1024 ** 4,
-  pb: 1024 ** 5
-};
-function bytes(val) {
-  if (typeof val === "number" && !Number.isNaN(val)) {
-    return val;
-  }
-  if (typeof val !== "string") {
-    return null;
-  }
-  const results = parseRegExp.exec(val);
-  let floatValue;
-  let unit = "b";
-  if (!results) {
-    floatValue = parseInt(val, 10);
-  } else {
-    const [, res, , , unitMatch] = results;
-    if (!res) {
-      return null;
-    }
-    floatValue = parseFloat(res);
-    if (unitMatch) {
-      unit = unitMatch.toLowerCase();
-    }
-  }
-  if (Number.isNaN(floatValue)) {
-    return null;
-  }
-  return Math.floor(map[unit] * floatValue);
-}
-var defaultVercelBlobApiUrl = "https://vercel.com/api/blob";
-function readEnv(name) {
-  try {
-    const value = process.env[name];
-    return typeof value === "string" && value.trim() !== "" ? value.trim() : void 0;
-  } catch {
-    return void 0;
-  }
-}
-function parseStoreIdFromReadWriteToken(token) {
-  const [, , , storeId = ""] = token.split("_");
-  return storeId;
-}
-function base64UrlDecodeDelegationSegment(segment) {
-  let base64 = segment.replace(/-/g, "+").replace(/_/g, "/");
-  const padding = 4 - base64.length % 4;
-  if (padding !== 4) {
-    base64 += "=".repeat(padding);
-  }
-  if (typeof atob === "function") {
-    return atob(base64);
-  }
-  if (typeof Buffer !== "undefined") {
-    return Buffer.from(base64, "base64").toString("utf8");
-  }
-  throw new BlobError("Cannot decode base64: no atob or Buffer available.");
-}
-function parseStoreIdFromDelegationToken(delegationToken) {
-  const dot = delegationToken.indexOf(".");
-  if (dot < 0) {
-    throw new BlobError("Invalid delegation token format.");
-  }
-  const payloadSeg = delegationToken.slice(0, dot);
-  let parsed;
-  try {
-    parsed = JSON.parse(base64UrlDecodeDelegationSegment(payloadSeg));
-  } catch {
-    throw new BlobError("Invalid delegation token payload.");
-  }
-  if (!parsed.storeId || typeof parsed.storeId !== "string") {
-    throw new BlobError("Delegation token payload is missing `storeId`.");
-  }
-  return normalizeStoreId(parsed.storeId);
-}
-function normalizeStoreId(storeId) {
-  return storeId.startsWith("store_") ? storeId.slice("store_".length) : storeId;
-}
-async function resolveBlobAuth(options) {
-  var _a3, _b2;
-  if (options == null ? void 0 : options.presignedUrlPayload) {
-    const storeId = parseStoreIdFromDelegationToken(
-      options.presignedUrlPayload.delegationToken
-    );
-    return { kind: "presigned", storeId };
-  }
-  if (options == null ? void 0 : options.token) {
-    const storeId = parseStoreIdFromReadWriteToken(options.token);
-    return { kind: "readWrite", token: options.token, storeId };
-  }
-  const manualOidcToken = (_a3 = options == null ? void 0 : options.oidcToken) == null ? void 0 : _a3.trim();
-  const oidcToken = manualOidcToken || await getVercelOidcToken2();
-  if (oidcToken) {
-    const manualStoreId = (_b2 = options == null ? void 0 : options.storeId) == null ? void 0 : _b2.trim();
-    if (manualStoreId) {
-      return {
-        kind: "oidc",
-        token: oidcToken,
-        storeId: normalizeStoreId(manualStoreId)
-      };
-    }
-    const blobStoreId = readEnv("BLOB_STORE_ID");
-    if (blobStoreId) {
-      return {
-        kind: "oidc",
-        token: oidcToken,
-        storeId: normalizeStoreId(blobStoreId)
-      };
-    }
-    if (manualOidcToken) {
-      throw new BlobError(
-        "oidcToken was passed, but no storeId was found. Pass a `storeId` option or set `BLOB_STORE_ID` to use OIDC auth"
-      );
-    }
-  }
-  const readWrite = readEnv("BLOB_READ_WRITE_TOKEN");
-  if (readWrite) {
-    const storeId = parseStoreIdFromReadWriteToken(readWrite);
-    return { kind: "readWrite", token: readWrite, storeId };
-  }
-  throw new BlobError(
-    "No blob credentials found. Pass a `token` option, set `BLOB_READ_WRITE_TOKEN`, or use `oidcToken` (or `VERCEL_OIDC_TOKEN`) with `storeId` or `BLOB_STORE_ID`."
-  );
-}
-function getReadWriteBlobTokenFromOptionsOrEnv(options) {
-  if (options == null ? void 0 : options.token) {
-    return options.token;
-  }
-  const readWrite = readEnv("BLOB_READ_WRITE_TOKEN");
-  if (readWrite) {
-    return readWrite;
-  }
-  throw new BlobError(
-    "No read-write token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
-  );
-}
-var BlobError = class extends Error {
-  constructor(message) {
-    super(`Vercel Blob: ${message}`);
-  }
-};
-function isPlainObject(value) {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const prototype = Object.getPrototypeOf(value);
-  return (prototype === null || prototype === Object.prototype || Object.getPrototypeOf(prototype) === null) && !(Symbol.toStringTag in value) && !(Symbol.iterator in value);
-}
-var disallowedPathnameCharacters = ["//"];
-var supportsRequestStreams = (() => {
-  if (isNodeProcess()) {
-    return true;
-  }
-  const apiUrl = getApiUrl();
-  if (apiUrl.startsWith("http://localhost")) {
-    return false;
-  }
-  let duplexAccessed = false;
-  const hasContentType = new Request(getApiUrl(), {
-    body: new ReadableStream(),
-    method: "POST",
-    // @ts-expect-error -- TypeScript doesn't yet have duplex but it's in the spec: https://github.com/microsoft/TypeScript-DOM-lib-generator/pull/1729
-    get duplex() {
-      duplexAccessed = true;
-      return "half";
-    }
-  }).headers.has("Content-Type");
-  return duplexAccessed && !hasContentType;
-})();
-function getApiUrl(pathname = "") {
-  let baseUrl = null;
-  try {
-    baseUrl = process.env.VERCEL_BLOB_API_URL || process.env.NEXT_PUBLIC_VERCEL_BLOB_API_URL;
-  } catch {
-  }
-  return `${baseUrl || defaultVercelBlobApiUrl}${pathname}`;
-}
-var TEXT_ENCODER = typeof TextEncoder === "function" ? new TextEncoder() : null;
-function computeBodyLength(body) {
-  if (!body) {
-    return 0;
-  }
-  if (typeof body === "string") {
-    if (TEXT_ENCODER) {
-      return TEXT_ENCODER.encode(body).byteLength;
-    }
-    return new Blob([body]).size;
-  }
-  if ("byteLength" in body && typeof body.byteLength === "number") {
-    return body.byteLength;
-  }
-  if ("size" in body && typeof body.size === "number") {
-    return body.size;
-  }
-  return 0;
-}
-var createChunkTransformStream = (chunkSize, onProgress) => {
-  let buffer = new Uint8Array(0);
-  return new TransformStream({
-    transform(chunk, controller) {
-      const newBuffer = new Uint8Array(buffer.length + chunk.byteLength);
-      newBuffer.set(buffer);
-      newBuffer.set(new Uint8Array(chunk), buffer.length);
-      buffer = newBuffer;
-      while (buffer.length >= chunkSize) {
-        const newChunk = buffer.slice(0, chunkSize);
-        controller.enqueue(newChunk);
-        onProgress == null ? void 0 : onProgress(newChunk.byteLength);
-        buffer = buffer.slice(chunkSize);
-      }
-    },
-    flush(controller) {
-      if (buffer.length > 0) {
-        controller.enqueue(buffer);
-        onProgress == null ? void 0 : onProgress(buffer.byteLength);
-      }
-    }
-  });
-};
-function isReadableStream(value) {
-  return globalThis.ReadableStream && // TODO: Can be removed once Node.js 16 is no more required internally
-  value instanceof ReadableStream;
-}
-function isStream(value) {
-  if (isReadableStream(value)) {
-    return true;
-  }
-  if (isNodeJsReadableStream(value)) {
-    return true;
-  }
-  return false;
-}
-var addPresignedParams = (url, presignedUrlPayload) => {
-  const urlObj = new URL(url);
-  for (const [key, value] of Object.entries(presignedUrlPayload.params)) {
-    urlObj.searchParams.set(key, value);
-  }
-  urlObj.searchParams.set(
-    "vercel-blob-delegation",
-    presignedUrlPayload.delegationToken
-  );
-  urlObj.searchParams.set(
-    "vercel-blob-signature",
-    presignedUrlPayload.signature
-  );
-  return urlObj.toString();
-};
-var debugIsActive = false;
-var _a;
-var _b;
-try {
-  if (((_a = process.env.DEBUG) == null ? void 0 : _a.includes("blob")) || ((_b = process.env.NEXT_PUBLIC_DEBUG) == null ? void 0 : _b.includes("blob"))) {
-    debugIsActive = true;
-  }
-} catch {
-}
-function debug(message, ...args) {
-  if (debugIsActive) {
-    console.debug(`vercel-blob: ${message}`, ...args);
-  }
-}
-var _a2;
-var DOMException2 = (_a2 = globalThis.DOMException) != null ? _a2 : (() => {
-  try {
-    atob("~");
-  } catch (err) {
-    return Object.getPrototypeOf(err).constructor;
-  }
-})();
-var objectToString = Object.prototype.toString;
-var isError = (value) => objectToString.call(value) === "[object Error]";
-var errorMessages = /* @__PURE__ */ new Set([
-  "network error",
-  // Chrome
-  "Failed to fetch",
-  // Chrome
-  "NetworkError when attempting to fetch resource.",
-  // Firefox
-  "The Internet connection appears to be offline.",
-  // Safari 16
-  "Load failed",
-  // Safari 17+
-  "Network request failed",
-  // `cross-fetch`
-  "fetch failed",
-  // Undici (Node.js)
-  "terminated"
-  // Undici (Node.js)
-]);
-function isNetworkError(error) {
-  const isValid = error && isError(error) && error.name === "TypeError" && typeof error.message === "string";
-  if (!isValid) {
-    return false;
-  }
-  if (error.message === "Load failed") {
-    return error.stack === void 0;
-  }
-  return errorMessages.has(error.message);
-}
-var hasFetch = typeof import_undici.fetch === "function";
-var hasFetchWithUploadProgress = hasFetch && supportsRequestStreams;
-var CHUNK_SIZE = 64 * 1024;
-var blobFetch = async ({
-  input,
-  init,
-  onUploadProgress
-}) => {
-  debug("using fetch");
-  let body;
-  if (init.body) {
-    if (onUploadProgress) {
-      const stream = await toReadableStream(init.body);
-      let loaded = 0;
-      const chunkTransformStream = createChunkTransformStream(
-        CHUNK_SIZE,
-        (newLoaded) => {
-          loaded += newLoaded;
-          onUploadProgress(loaded);
-        }
-      );
-      body = stream.pipeThrough(chunkTransformStream);
-    } else {
-      body = init.body;
-    }
-  }
-  const duplex = supportsRequestStreams && body && isStream(body) ? "half" : void 0;
-  return (0, import_undici.fetch)(
-    input,
-    // @ts-expect-error -- Blob and Nodejs Blob are triggering type errors, fine with it
-    {
-      ...init,
-      ...init.body ? { body } : {},
-      duplex
-    }
-  );
-};
-var hasXhr = typeof XMLHttpRequest !== "undefined";
-var blobXhr = async ({
-  input,
-  init,
-  onUploadProgress
-}) => {
-  debug("using xhr");
-  let body = null;
-  if (init.body) {
-    if (isReadableStream(init.body)) {
-      body = await new Response(init.body).blob();
-    } else {
-      body = init.body;
-    }
-  }
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open(init.method || "GET", input.toString(), true);
-    if (onUploadProgress) {
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          onUploadProgress(event.loaded);
-        }
-      });
-    }
-    xhr.onload = () => {
-      var _a3;
-      if ((_a3 = init.signal) == null ? void 0 : _a3.aborted) {
-        reject(new DOMException("The user aborted the request.", "AbortError"));
-        return;
-      }
-      const headers = new Headers();
-      const rawHeaders = xhr.getAllResponseHeaders().trim().split(/[\r\n]+/);
-      rawHeaders.forEach((line) => {
-        const parts = line.split(": ");
-        const key = parts.shift();
-        const value = parts.join(": ");
-        if (key) headers.set(key.toLowerCase(), value);
-      });
-      const response = new Response(xhr.response, {
-        status: xhr.status,
-        statusText: xhr.statusText,
-        headers
-      });
-      resolve(response);
-    };
-    xhr.onerror = () => {
-      reject(new TypeError("Network request failed"));
-    };
-    xhr.ontimeout = () => {
-      reject(new TypeError("Network request timed out"));
-    };
-    xhr.onabort = () => {
-      reject(new DOMException("The user aborted a request.", "AbortError"));
-    };
-    if (init.headers) {
-      const headers = new Headers(init.headers);
-      headers.forEach((value, key) => {
-        xhr.setRequestHeader(key, value);
-      });
-    }
-    if (init.signal) {
-      init.signal.addEventListener("abort", () => {
-        xhr.abort();
-      });
-      if (init.signal.aborted) {
-        xhr.abort();
-        return;
-      }
-    }
-    xhr.send(body);
-  });
-};
-var blobRequest = async ({
-  input,
-  init,
-  onUploadProgress
-}) => {
-  if (onUploadProgress) {
-    if (hasFetchWithUploadProgress) {
-      return blobFetch({ input, init, onUploadProgress });
-    }
-    if (hasXhr) {
-      return blobXhr({ input, init, onUploadProgress });
-    }
-  }
-  if (hasFetch) {
-    return blobFetch({ input, init });
-  }
-  if (hasXhr) {
-    return blobXhr({ input, init });
-  }
-  throw new Error("No request implementation available");
-};
-var MAXIMUM_PATHNAME_LENGTH = 950;
-var BlobAccessError = class extends BlobError {
-  constructor() {
-    super("Access denied, please provide a valid token for this resource.");
-  }
-};
-var BlobOidcEnvironmentNotAllowedError = class extends BlobError {
-  constructor(message) {
-    super(
-      message != null ? message : "OIDC is enabled for this project, but not for this token's environment."
-    );
-  }
-};
-var BlobContentTypeNotAllowedError = class extends BlobError {
-  constructor(message) {
-    super(`Content type mismatch, ${message}.`);
-  }
-};
-var BlobPathnameMismatchError = class extends BlobError {
-  constructor(message) {
-    super(
-      `Pathname mismatch, ${message}. Check the pathname used in upload() or put() matches the one from the client token.`
-    );
-  }
-};
-var BlobClientTokenExpiredError = class extends BlobError {
-  constructor() {
-    super("Client token has expired.");
-  }
-};
-var BlobFileTooLargeError = class extends BlobError {
-  constructor(message) {
-    super(`File is too large, ${message}.`);
-  }
-};
-var BlobStoreNotFoundError = class extends BlobError {
-  constructor() {
-    super("This store does not exist.");
-  }
-};
-var BlobStoreSuspendedError = class extends BlobError {
-  constructor() {
-    super("This store has been suspended.");
-  }
-};
-var BlobUnknownError = class extends BlobError {
-  constructor() {
-    super("Unknown error, please visit https://vercel.com/help.");
-  }
-};
-var BlobNotFoundError = class extends BlobError {
-  constructor() {
-    super("The requested blob does not exist");
-  }
-};
-var BlobServiceNotAvailable = class extends BlobError {
-  constructor() {
-    super("The blob service is currently not available. Please try again.");
-  }
-};
-var BlobServiceRateLimited = class extends BlobError {
-  constructor(seconds) {
-    super(
-      `Too many requests please lower the number of concurrent requests ${seconds ? ` - try again in ${seconds} seconds` : ""}.`
-    );
-    this.retryAfter = seconds != null ? seconds : 0;
-  }
-};
-var BlobRequestAbortedError = class extends BlobError {
-  constructor() {
-    super("The request was aborted.");
-  }
-};
-var BlobPreconditionFailedError = class extends BlobError {
-  constructor() {
-    super("Precondition failed: ETag mismatch.");
-  }
-};
-var BLOB_API_VERSION = 12;
-function getApiVersion() {
-  let versionOverride = null;
-  try {
-    versionOverride = process.env.VERCEL_BLOB_API_VERSION_OVERRIDE || process.env.NEXT_PUBLIC_VERCEL_BLOB_API_VERSION_OVERRIDE;
-  } catch {
-  }
-  return `${versionOverride != null ? versionOverride : BLOB_API_VERSION}`;
-}
-function getRetries() {
-  try {
-    const retries = process.env.VERCEL_BLOB_RETRIES || "10";
-    return parseInt(retries, 10);
-  } catch {
-    return 10;
-  }
-}
-function createBlobServiceRateLimited(response) {
-  const retryAfter = response.headers.get("retry-after");
-  return new BlobServiceRateLimited(
-    retryAfter ? parseInt(retryAfter, 10) : void 0
-  );
-}
-async function getBlobError(response) {
-  var _a3, _b2, _c;
-  let code;
-  let message;
-  try {
-    const data = await response.json();
-    code = (_b2 = (_a3 = data.error) == null ? void 0 : _a3.code) != null ? _b2 : "unknown_error";
-    message = (_c = data.error) == null ? void 0 : _c.message;
-  } catch {
-    code = "unknown_error";
-  }
-  if ((message == null ? void 0 : message.includes("contentType")) && message.includes("is not allowed")) {
-    code = "content_type_not_allowed";
-  }
-  if ((message == null ? void 0 : message.includes('"pathname"')) && message.includes("does not match the token payload")) {
-    code = "client_token_pathname_mismatch";
-  }
-  if (message === "Token expired") {
-    code = "client_token_expired";
-  }
-  if (message == null ? void 0 : message.includes("the file length cannot be greater than")) {
-    code = "file_too_large";
-  }
-  if ((message == null ? void 0 : message.startsWith("OIDC is enabled for this project, but not for the")) && message.includes("environment.")) {
-    code = "oidc_environment_not_allowed";
-  }
-  let error;
-  switch (code) {
-    case "store_suspended":
-      error = new BlobStoreSuspendedError();
-      break;
-    case "forbidden":
-      error = new BlobAccessError();
-      break;
-    case "oidc_environment_not_allowed":
-      error = new BlobOidcEnvironmentNotAllowedError(message);
-      break;
-    case "content_type_not_allowed":
-      error = new BlobContentTypeNotAllowedError(message);
-      break;
-    case "client_token_pathname_mismatch":
-      error = new BlobPathnameMismatchError(message);
-      break;
-    case "client_token_expired":
-      error = new BlobClientTokenExpiredError();
-      break;
-    case "file_too_large":
-      error = new BlobFileTooLargeError(message);
-      break;
-    case "not_found":
-      error = new BlobNotFoundError();
-      break;
-    case "client_token_not_allowed":
-      error = new BlobError(
-        message != null ? message : "This operation is not available when using a client token. Use a read\u2013write or OIDC token on the server."
-      );
-      break;
-    case "store_not_found":
-      error = new BlobStoreNotFoundError();
-      break;
-    case "bad_request":
-      error = new BlobError(message != null ? message : "Bad request");
-      break;
-    case "service_unavailable":
-      error = new BlobServiceNotAvailable();
-      break;
-    case "rate_limited":
-      error = createBlobServiceRateLimited(response);
-      break;
-    case "precondition_failed":
-      error = new BlobPreconditionFailedError();
-      break;
-    case "unknown_error":
-    case "not_allowed":
-    default:
-      error = new BlobUnknownError();
-      break;
-  }
-  return { code, error };
-}
-async function requestApi(pathname, init, commandOptions) {
-  const apiVersion = getApiVersion();
-  const auth = await resolveBlobAuth(commandOptions);
-  const bearerToken = auth.kind === "presigned" ? void 0 : auth.token;
-  const extraHeaders = getProxyThroughAlternativeApiHeaderFromEnv();
-  let requestInput = getApiUrl(pathname);
-  if (commandOptions == null ? void 0 : commandOptions.presignedUrlPayload) {
-    requestInput = addPresignedParams(
-      requestInput,
-      commandOptions.presignedUrlPayload
-    );
-  }
-  const requestId = `${auth.storeId}:${Date.now()}:${Math.random().toString(16).slice(2)}`;
-  let retryCount = 0;
-  let bodyLength = 0;
-  let totalLoaded = 0;
-  const sendBodyLength = (commandOptions == null ? void 0 : commandOptions.onUploadProgress) || shouldUseXContentLength();
-  if (init.body && // 1. For upload progress we always need to know the total size of the body
-  // 2. In development we need the header for put() to work correctly when passing a stream
-  sendBodyLength) {
-    bodyLength = computeBodyLength(init.body);
-  }
-  if (commandOptions == null ? void 0 : commandOptions.onUploadProgress) {
-    commandOptions.onUploadProgress({
-      loaded: 0,
-      total: bodyLength,
-      percentage: 0
-    });
-  }
-  const apiResponse = await (0, import_async_retry.default)(
-    async (bail) => {
-      let res;
-      try {
-        res = await blobRequest({
-          input: requestInput,
-          init: {
-            ...init,
-            headers: {
-              "x-api-blob-request-id": requestId,
-              // Store ID is not encoded in OIDC token, so pass it separately as a header
-              "x-vercel-blob-store-id": auth.storeId,
-              "x-api-blob-request-attempt": String(retryCount),
-              "x-api-version": apiVersion,
-              ...sendBodyLength ? { "x-content-length": String(bodyLength) } : {},
-              ...bearerToken !== void 0 ? { authorization: `Bearer ${bearerToken}` } : {},
-              ...extraHeaders,
-              ...init.headers
-            }
-          },
-          onUploadProgress: (commandOptions == null ? void 0 : commandOptions.onUploadProgress) ? (loaded) => {
-            var _a3;
-            const total = bodyLength !== 0 ? bodyLength : loaded;
-            totalLoaded = loaded;
-            const percentage = bodyLength > 0 ? Number((loaded / total * 100).toFixed(2)) : 0;
-            if (percentage === 100 && bodyLength > 0) {
-              return;
-            }
-            (_a3 = commandOptions.onUploadProgress) == null ? void 0 : _a3.call(commandOptions, {
-              loaded,
-              // When passing a stream to put(), we have no way to know the total size of the body.
-              // Instead of defining total as total?: number we decided to set the total to the currently
-              // loaded number. This is not inaccurate and way more practical for DX.
-              // Passing down a stream to put() is very rare
-              total,
-              percentage
-            });
-          } : void 0
-        });
-      } catch (error2) {
-        if (error2 instanceof DOMException2 && error2.name === "AbortError") {
-          bail(new BlobRequestAbortedError());
-          return;
-        }
-        if (isNetworkError(error2)) {
-          throw error2;
-        }
-        if (error2 instanceof TypeError) {
-          bail(error2);
-          return;
-        }
-        throw error2;
-      }
-      if (res.ok) {
-        return res;
-      }
-      const { code, error } = await getBlobError(res);
-      if (code === "unknown_error" || code === "service_unavailable" || code === "internal_server_error") {
-        throw error;
-      }
-      bail(error);
-    },
-    {
-      retries: getRetries(),
-      onRetry: (error) => {
-        if (error instanceof Error) {
-          debug(`retrying API request to ${pathname}`, error.message);
-        }
-        retryCount = retryCount + 1;
-      }
-    }
-  );
-  if (!apiResponse) {
-    throw new BlobUnknownError();
-  }
-  if (commandOptions == null ? void 0 : commandOptions.onUploadProgress) {
-    commandOptions.onUploadProgress({
-      loaded: totalLoaded,
-      total: totalLoaded,
-      percentage: 100
-    });
-  }
-  return await apiResponse.json();
-}
-function getProxyThroughAlternativeApiHeaderFromEnv() {
-  const extraHeaders = {};
-  try {
-    if ("VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API" in process.env && process.env.VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API !== void 0) {
-      extraHeaders["x-proxy-through-alternative-api"] = process.env.VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API;
-    } else if ("NEXT_PUBLIC_VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API" in process.env && process.env.NEXT_PUBLIC_VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API !== void 0) {
-      extraHeaders["x-proxy-through-alternative-api"] = process.env.NEXT_PUBLIC_VERCEL_BLOB_PROXY_THROUGH_ALTERNATIVE_API;
-    }
-  } catch {
-  }
-  return extraHeaders;
-}
-function shouldUseXContentLength() {
-  try {
-    return process.env.VERCEL_BLOB_USE_X_CONTENT_LENGTH === "1";
-  } catch {
-    return false;
-  }
-}
-var optimizeImageFormatToMimeType = {
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  avif: "image/avif"
-};
-function validateOptimizeImageOptions(optimizeImage) {
-  if (typeof optimizeImage !== "object" || optimizeImage === null) {
-    throw new BlobError("optimizeImage must be an object, see usage");
-  }
-  const { width, quality, format } = optimizeImage;
-  if (!Number.isInteger(width) || width < 1 || width > 8192) {
-    throw new BlobError(
-      "optimizeImage.width must be an integer between 1 and 8192"
-    );
-  }
-  if (quality !== void 0 && (!Number.isInteger(quality) || quality < 1 || quality > 100)) {
-    throw new BlobError(
-      "optimizeImage.quality must be an integer between 1 and 100"
-    );
-  }
-  if (format !== void 0 && !(format in optimizeImageFormatToMimeType)) {
-    throw new BlobError(
-      `optimizeImage.format must be one of: ${Object.keys(
-        optimizeImageFormatToMimeType
-      ).join(", ")}`
-    );
-  }
-}
-function validateOptimizeImageSourceContentType(contentType) {
-  if (contentType && contentType !== "application/octet-stream" && !contentType.startsWith("image/")) {
-    throw new BlobError(
-      `optimizeImage requires an image body, but the content type is "${contentType}"`
-    );
-  }
-}
-function addOptimizeImageParams(params, optimizeImage) {
-  var _a3;
-  validateOptimizeImageOptions(optimizeImage);
-  params.set("width", String(optimizeImage.width));
-  params.set("quality", String((_a3 = optimizeImage.quality) != null ? _a3 : 75));
-  if (optimizeImage.format) {
-    params.set("format", optimizeImageFormatToMimeType[optimizeImage.format]);
-  }
-}
-var putOptionHeaderMap = {
-  cacheControlMaxAge: "x-cache-control-max-age",
-  addRandomSuffix: "x-add-random-suffix",
-  allowOverwrite: "x-allow-overwrite",
-  contentType: "x-content-type",
-  access: "x-vercel-blob-access",
-  ifMatch: "x-if-match"
-};
-function createPutHeaders(allowedOptions, options) {
-  const headers = {};
-  headers[putOptionHeaderMap.access] = options.access;
-  if (allowedOptions.includes("contentType") && options.contentType) {
-    headers[putOptionHeaderMap.contentType] = options.contentType;
-  }
-  if (allowedOptions.includes("addRandomSuffix") && options.addRandomSuffix !== void 0) {
-    headers[putOptionHeaderMap.addRandomSuffix] = options.addRandomSuffix ? "1" : "0";
-  }
-  if (allowedOptions.includes("ifMatch") && options.ifMatch) {
-    if (options.allowOverwrite === false) {
-      throw new BlobError(
-        "ifMatch and allowOverwrite: false are contradictory. ifMatch is used for conditional overwrites, which requires allowOverwrite to be true."
-      );
-    }
-    headers[putOptionHeaderMap.ifMatch] = options.ifMatch;
-    if (allowedOptions.includes("allowOverwrite") && options.allowOverwrite === void 0) {
-      headers[putOptionHeaderMap.allowOverwrite] = "1";
-    }
-  }
-  if (allowedOptions.includes("allowOverwrite") && options.allowOverwrite !== void 0) {
-    headers[putOptionHeaderMap.allowOverwrite] = options.allowOverwrite ? "1" : "0";
-  }
-  if (allowedOptions.includes("cacheControlMaxAge") && options.cacheControlMaxAge !== void 0) {
-    headers[putOptionHeaderMap.cacheControlMaxAge] = options.cacheControlMaxAge.toString();
-  }
-  return headers;
-}
-async function createPutOptions({
-  pathname,
-  options,
-  extraChecks,
-  getToken
-}) {
-  if (!pathname) {
-    throw new BlobError("pathname is required");
-  }
-  if (pathname.length > MAXIMUM_PATHNAME_LENGTH) {
-    throw new BlobError(
-      `pathname is too long, maximum length is ${MAXIMUM_PATHNAME_LENGTH}`
-    );
-  }
-  for (const invalidCharacter of disallowedPathnameCharacters) {
-    if (pathname.includes(invalidCharacter)) {
-      throw new BlobError(
-        `pathname cannot contain "${invalidCharacter}", please encode it if needed`
-      );
-    }
-  }
-  if (!options) {
-    throw new BlobError("missing options, see usage");
-  }
-  if (options.access !== "public" && options.access !== "private") {
-    throw new BlobError(
-      'access must be "private" or "public", see https://vercel.com/docs/vercel-blob'
-    );
-  }
-  if (extraChecks) {
-    extraChecks(options);
-  }
-  if (getToken) {
-    options.token = await getToken(pathname, options);
-  }
-  return options;
-}
-function createCompleteMultipartUploadMethod({ allowedOptions, getToken, extraChecks }) {
-  return async (pathname, parts, optionsInput) => {
-    const options = await createPutOptions({
-      pathname,
-      options: optionsInput,
-      extraChecks,
-      getToken
-    });
-    const headers = createPutHeaders(allowedOptions, options);
-    return completeMultipartUpload({
-      uploadId: options.uploadId,
-      key: options.key,
-      pathname,
-      headers,
-      options,
-      parts
-    });
-  };
-}
-async function completeMultipartUpload({
-  uploadId,
-  key,
-  pathname,
-  parts,
-  headers,
-  options
-}) {
-  const params = new URLSearchParams({ pathname });
-  try {
-    const response = await requestApi(
-      `/mpu?${params.toString()}`,
-      {
-        method: "POST",
-        headers: {
-          ...headers,
-          "content-type": "application/json",
-          "x-mpu-action": "complete",
-          "x-mpu-upload-id": uploadId,
-          // key can be any utf8 character so we need to encode it as HTTP headers can only be us-ascii
-          // https://www.rfc-editor.org/rfc/rfc7230#swection-3.2.4
-          "x-mpu-key": encodeURIComponent(key)
-        },
-        body: JSON.stringify(parts),
-        signal: options.abortSignal
-      },
-      options
-    );
-    debug("mpu: complete", response);
-    return response;
-  } catch (error) {
-    if (error instanceof TypeError && (error.message === "Failed to fetch" || error.message === "fetch failed")) {
-      throw new BlobServiceNotAvailable();
-    } else {
-      throw error;
-    }
-  }
-}
-function createCreateMultipartUploadMethod({ allowedOptions, getToken, extraChecks }) {
-  return async (pathname, optionsInput) => {
-    const options = await createPutOptions({
-      pathname,
-      options: optionsInput,
-      extraChecks,
-      getToken
-    });
-    const headers = createPutHeaders(allowedOptions, options);
-    const createMultipartUploadResponse = await createMultipartUpload(
-      pathname,
-      headers,
-      options
-    );
-    return {
-      key: createMultipartUploadResponse.key,
-      uploadId: createMultipartUploadResponse.uploadId
-    };
-  };
-}
-async function createMultipartUpload(pathname, headers, options) {
-  debug("mpu: create", "pathname:", pathname);
-  const params = new URLSearchParams({ pathname });
-  try {
-    const response = await requestApi(
-      `/mpu?${params.toString()}`,
-      {
-        method: "POST",
-        headers: {
-          ...headers,
-          "x-mpu-action": "create"
-        },
-        signal: options.abortSignal
-      },
-      options
-    );
-    debug("mpu: create", response);
-    return response;
-  } catch (error) {
-    if (error instanceof TypeError && (error.message === "Failed to fetch" || error.message === "fetch failed")) {
-      throw new BlobServiceNotAvailable();
-    }
-    throw error;
-  }
-}
-function createUploadPartMethod({ allowedOptions, getToken, extraChecks }) {
-  return async (pathname, body, optionsInput) => {
-    const options = await createPutOptions({
-      pathname,
-      options: optionsInput,
-      extraChecks,
-      getToken
-    });
-    const headers = createPutHeaders(allowedOptions, options);
-    if (isPlainObject(body)) {
-      throw new BlobError(
-        "Body must be a string, buffer or stream. You sent a plain JavaScript object, double check what you're trying to upload."
-      );
-    }
-    const result = await uploadPart({
-      uploadId: options.uploadId,
-      key: options.key,
-      pathname,
-      part: { blob: body, partNumber: options.partNumber },
-      headers,
-      options
-    });
-    return {
-      etag: result.etag,
-      partNumber: options.partNumber
-    };
-  };
-}
-async function uploadPart({
-  uploadId,
-  key,
-  pathname,
-  headers,
-  options,
-  internalAbortController = new AbortController(),
-  part
-}) {
-  var _a3, _b2, _c;
-  const params = new URLSearchParams({ pathname });
-  const responsePromise = requestApi(
-    `/mpu?${params.toString()}`,
-    {
-      signal: internalAbortController.signal,
-      method: "POST",
-      headers: {
-        ...headers,
-        "x-mpu-action": "upload",
-        "x-mpu-key": encodeURIComponent(key),
-        "x-mpu-upload-id": uploadId,
-        "x-mpu-part-number": part.partNumber.toString()
-      },
-      // weird things between undici types and native fetch types
-      body: part.blob
-    },
-    options
-  );
-  function handleAbort() {
-    internalAbortController.abort();
-  }
-  if ((_a3 = options.abortSignal) == null ? void 0 : _a3.aborted) {
-    handleAbort();
-  } else {
-    (_b2 = options.abortSignal) == null ? void 0 : _b2.addEventListener("abort", handleAbort);
-  }
-  const response = await responsePromise;
-  (_c = options.abortSignal) == null ? void 0 : _c.removeEventListener("abort", handleAbort);
-  return response;
-}
-var maxConcurrentUploads = typeof window !== "undefined" ? 6 : 8;
-var partSizeInBytes = 8 * 1024 * 1024;
-var maxBytesInMemory = maxConcurrentUploads * partSizeInBytes * 2;
-function uploadAllParts({
-  uploadId,
-  key,
-  pathname,
-  stream,
-  headers,
-  options,
-  totalToLoad
-}) {
-  debug("mpu: upload init", "key:", key);
-  const internalAbortController = new AbortController();
-  return new Promise((resolve, reject) => {
-    const partsToUpload = [];
-    const completedParts = [];
-    const reader = stream.getReader();
-    let activeUploads = 0;
-    let reading = false;
-    let currentPartNumber = 1;
-    let rejected = false;
-    let currentBytesInMemory = 0;
-    let doneReading = false;
-    let bytesSent = 0;
-    let arrayBuffers = [];
-    let currentPartBytesRead = 0;
-    let onUploadProgress;
-    const totalLoadedPerPartNumber = {};
-    if (options.onUploadProgress) {
-      onUploadProgress = (0, import_throttleit.default)(() => {
-        var _a3;
-        const loaded = Object.values(totalLoadedPerPartNumber).reduce(
-          (acc, cur) => {
-            return acc + cur;
-          },
-          0
-        );
-        const total = totalToLoad || loaded;
-        const percentage = totalToLoad > 0 ? Number(((loaded / totalToLoad || loaded) * 100).toFixed(2)) : 0;
-        (_a3 = options.onUploadProgress) == null ? void 0 : _a3.call(options, { loaded, total, percentage });
-      }, 150);
-    }
-    read().catch(cancel);
-    async function read() {
-      debug(
-        "mpu: upload read start",
-        "activeUploads:",
-        activeUploads,
-        "currentBytesInMemory:",
-        `${bytes(currentBytesInMemory)}/${bytes(maxBytesInMemory)}`,
-        "bytesSent:",
-        bytes(bytesSent)
-      );
-      reading = true;
-      while (currentBytesInMemory < maxBytesInMemory && !rejected) {
-        try {
-          const { value, done } = await reader.read();
-          if (done) {
-            doneReading = true;
-            debug("mpu: upload read consumed the whole stream");
-            if (arrayBuffers.length > 0) {
-              partsToUpload.push({
-                partNumber: currentPartNumber++,
-                blob: new Blob(arrayBuffers, {
-                  type: "application/octet-stream"
-                })
-              });
-              sendParts();
-            } else if (activeUploads === 0) {
-              reader.releaseLock();
-              resolve(completedParts);
-            }
-            reading = false;
-            return;
-          }
-          currentBytesInMemory += value.byteLength;
-          let valueOffset = 0;
-          while (valueOffset < value.byteLength) {
-            const remainingPartSize = partSizeInBytes - currentPartBytesRead;
-            const endOffset = Math.min(
-              valueOffset + remainingPartSize,
-              value.byteLength
-            );
-            const chunk = value.slice(valueOffset, endOffset);
-            arrayBuffers.push(chunk);
-            currentPartBytesRead += chunk.byteLength;
-            valueOffset = endOffset;
-            if (currentPartBytesRead === partSizeInBytes) {
-              partsToUpload.push({
-                partNumber: currentPartNumber++,
-                blob: new Blob(arrayBuffers, {
-                  type: "application/octet-stream"
-                })
-              });
-              arrayBuffers = [];
-              currentPartBytesRead = 0;
-              sendParts();
-            }
-          }
-        } catch (error) {
-          cancel(error);
-        }
-      }
-      debug(
-        "mpu: upload read end",
-        "activeUploads:",
-        activeUploads,
-        "currentBytesInMemory:",
-        `${bytes(currentBytesInMemory)}/${bytes(maxBytesInMemory)}`,
-        "bytesSent:",
-        bytes(bytesSent)
-      );
-      reading = false;
-    }
-    async function sendPart(part) {
-      activeUploads++;
-      debug(
-        "mpu: upload send part start",
-        "partNumber:",
-        part.partNumber,
-        "size:",
-        part.blob.size,
-        "activeUploads:",
-        activeUploads,
-        "currentBytesInMemory:",
-        `${bytes(currentBytesInMemory)}/${bytes(maxBytesInMemory)}`,
-        "bytesSent:",
-        bytes(bytesSent)
-      );
-      try {
-        const uploadProgressForPart = options.onUploadProgress ? (event) => {
-          totalLoadedPerPartNumber[part.partNumber] = event.loaded;
-          if (onUploadProgress) {
-            onUploadProgress();
-          }
-        } : void 0;
-        const completedPart = await uploadPart({
-          uploadId,
-          key,
-          pathname,
-          headers,
-          options: {
-            ...options,
-            onUploadProgress: uploadProgressForPart
-          },
-          internalAbortController,
-          part
-        });
-        debug(
-          "mpu: upload send part end",
-          "partNumber:",
-          part.partNumber,
-          "activeUploads",
-          activeUploads,
-          "currentBytesInMemory:",
-          `${bytes(currentBytesInMemory)}/${bytes(maxBytesInMemory)}`,
-          "bytesSent:",
-          bytes(bytesSent)
-        );
-        if (rejected) {
-          return;
-        }
-        completedParts.push({
-          partNumber: part.partNumber,
-          etag: completedPart.etag
-        });
-        currentBytesInMemory -= part.blob.size;
-        activeUploads--;
-        bytesSent += part.blob.size;
-        if (partsToUpload.length > 0) {
-          sendParts();
-        }
-        if (doneReading) {
-          if (activeUploads === 0) {
-            reader.releaseLock();
-            resolve(completedParts);
-          }
-          return;
-        }
-        if (!reading) {
-          read().catch(cancel);
-        }
-      } catch (error) {
-        cancel(error);
-      }
-    }
-    function sendParts() {
-      if (rejected) {
-        return;
-      }
-      debug(
-        "send parts",
-        "activeUploads",
-        activeUploads,
-        "partsToUpload",
-        partsToUpload.length
-      );
-      while (activeUploads < maxConcurrentUploads && partsToUpload.length > 0) {
-        const partToSend = partsToUpload.shift();
-        if (partToSend) {
-          void sendPart(partToSend);
-        }
-      }
-    }
-    function cancel(error) {
-      if (rejected) {
-        return;
-      }
-      rejected = true;
-      internalAbortController.abort();
-      reader.releaseLock();
-      if (error instanceof TypeError && (error.message === "Failed to fetch" || error.message === "fetch failed")) {
-        reject(new BlobServiceNotAvailable());
-      } else {
-        reject(error);
-      }
-    }
-  });
-}
-function createCreateMultipartUploaderMethod({ allowedOptions, getToken, extraChecks }) {
-  return async (pathname, optionsInput) => {
-    const options = await createPutOptions({
-      pathname,
-      options: optionsInput,
-      extraChecks,
-      getToken
-    });
-    const headers = createPutHeaders(allowedOptions, options);
-    const createMultipartUploadResponse = await createMultipartUpload(
-      pathname,
-      headers,
-      options
-    );
-    return {
-      key: createMultipartUploadResponse.key,
-      uploadId: createMultipartUploadResponse.uploadId,
-      async uploadPart(partNumber, body) {
-        if (isPlainObject(body)) {
-          throw new BlobError(
-            "Body must be a string, buffer or stream. You sent a plain JavaScript object, double check what you're trying to upload."
-          );
-        }
-        const result = await uploadPart({
-          uploadId: createMultipartUploadResponse.uploadId,
-          key: createMultipartUploadResponse.key,
-          pathname,
-          part: { partNumber, blob: body },
-          headers,
-          options
-        });
-        return {
-          etag: result.etag,
-          partNumber
-        };
-      },
-      async complete(parts) {
-        return completeMultipartUpload({
-          uploadId: createMultipartUploadResponse.uploadId,
-          key: createMultipartUploadResponse.key,
-          pathname,
-          parts,
-          headers,
-          options
-        });
-      }
-    };
-  };
-}
-async function uncontrolledMultipartUpload(pathname, body, headers, options) {
-  debug("mpu: init", "pathname:", pathname, "headers:", headers);
-  const optionsWithoutOnUploadProgress = {
-    ...options,
-    onUploadProgress: void 0
-  };
-  if (options.maximumSizeInBytes !== void 0 && !isStream(body) && computeBodyLength(body) > options.maximumSizeInBytes) {
-    throw new BlobError(
-      `Body size of ${computeBodyLength(body)} bytes exceeds the maximum allowed size of ${options.maximumSizeInBytes} bytes`
-    );
-  }
-  const createMultipartUploadResponse = await createMultipartUpload(
-    pathname,
-    headers,
-    optionsWithoutOnUploadProgress
-  );
-  const totalToLoad = computeBodyLength(body);
-  const stream = await toReadableStream(body);
-  const parts = await uploadAllParts({
-    uploadId: createMultipartUploadResponse.uploadId,
-    key: createMultipartUploadResponse.key,
-    pathname,
-    // @ts-expect-error ReadableStream<ArrayBuffer | Uint8Array> is compatible at runtime
-    stream,
-    headers,
-    options,
-    totalToLoad
-  });
-  const blob = await completeMultipartUpload({
-    uploadId: createMultipartUploadResponse.uploadId,
-    key: createMultipartUploadResponse.key,
-    pathname,
-    parts,
-    headers,
-    options: optionsWithoutOnUploadProgress
-  });
-  return blob;
-}
-function createPutMethod({
-  allowedOptions,
-  getToken,
-  getPresignedUrlPayload,
-  extraChecks
-}) {
-  return async function put3(pathname, body, optionsInput) {
-    var _a3;
-    if (!body) {
-      throw new BlobError("body is required");
-    }
-    if (isPlainObject(body)) {
-      throw new BlobError(
-        "Body must be a string, buffer or stream. You sent a plain JavaScript object, double check what you're trying to upload."
-      );
-    }
-    const options = await createPutOptions({
-      pathname,
-      options: optionsInput,
-      extraChecks,
-      getToken
-    });
-    const presignedUrlPayload = await (getPresignedUrlPayload == null ? void 0 : getPresignedUrlPayload(
-      pathname,
-      options
-    ));
-    const optionsWithPresignedUrlPayload = {
-      ...options,
-      presignedUrlPayload
-    };
-    const headers = createPutHeaders(allowedOptions, options);
-    if (options.optimizeImage) {
-      if (options.multipart === true) {
-        throw new BlobError(
-          "optimizeImage cannot be combined with multipart uploads"
-        );
-      }
-      validateOptimizeImageSourceContentType(
-        (_a3 = options.contentType) != null ? _a3 : typeof Blob !== "undefined" && body instanceof Blob ? body.type : void 0
-      );
-      const params2 = new URLSearchParams({ pathname });
-      addOptimizeImageParams(params2, options.optimizeImage);
-      const response2 = await requestApi(
-        `/put-optimized?${params2.toString()}`,
-        {
-          method: "POST",
-          body,
-          headers,
-          signal: options.abortSignal
-        },
-        optionsWithPresignedUrlPayload
-      );
-      return {
-        url: response2.url,
-        downloadUrl: response2.downloadUrl,
-        pathname: response2.pathname,
-        contentType: response2.contentType,
-        contentDisposition: response2.contentDisposition,
-        etag: response2.etag
-      };
-    }
-    if (options.multipart === true) {
-      return uncontrolledMultipartUpload(
-        pathname,
-        body,
-        headers,
-        optionsWithPresignedUrlPayload
-      );
-    }
-    const onUploadProgress = options.onUploadProgress ? (0, import_throttleit2.default)(options.onUploadProgress, 100) : void 0;
-    const params = new URLSearchParams({ pathname });
-    const response = await requestApi(
-      `/?${params.toString()}`,
-      {
-        method: "PUT",
-        body,
-        headers,
-        signal: options.abortSignal
-      },
-      {
-        ...optionsWithPresignedUrlPayload,
-        onUploadProgress
-      }
-    );
-    return {
-      url: response.url,
-      downloadUrl: response.downloadUrl,
-      pathname: response.pathname,
-      contentType: response.contentType,
-      contentDisposition: response.contentDisposition,
-      etag: response.etag
-    };
-  };
-}
-var MAX_PRESIGN_CACHE_CONTROL_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
-var utf8Encoder = new TextEncoder();
-
-// node_modules/@vercel/blob/dist/index.js
-var import_undici2 = __toESM(require_undici(), 1);
-async function del(urlOrPathname, options) {
-  const urls = Array.isArray(urlOrPathname) ? urlOrPathname : [urlOrPathname];
-  if ((options == null ? void 0 : options.ifMatch) && urls.length > 1) {
-    throw new BlobError("ifMatch can only be used when deleting a single URL.");
-  }
-  const headers = {
-    "content-type": "application/json"
-  };
-  if (options == null ? void 0 : options.ifMatch) {
-    headers["x-if-match"] = options.ifMatch;
-  }
-  await requestApi(
-    "/delete",
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ urls }),
-      signal: options == null ? void 0 : options.abortSignal
-    },
-    options
-  );
-}
-var put = createPutMethod({
-  allowedOptions: [
-    "cacheControlMaxAge",
-    "addRandomSuffix",
-    "allowOverwrite",
-    "contentType",
-    "ifMatch"
-  ]
-});
-var createMultipartUpload2 = createCreateMultipartUploadMethod({
-  allowedOptions: [
-    "cacheControlMaxAge",
-    "addRandomSuffix",
-    "allowOverwrite",
-    "contentType",
-    "ifMatch"
-  ]
-});
-var createMultipartUploader = createCreateMultipartUploaderMethod({
-  allowedOptions: [
-    "cacheControlMaxAge",
-    "addRandomSuffix",
-    "allowOverwrite",
-    "contentType",
-    "ifMatch"
-  ]
-});
-var uploadPart2 = createUploadPartMethod({
-  allowedOptions: [
-    "cacheControlMaxAge",
-    "addRandomSuffix",
-    "allowOverwrite",
-    "contentType"
-  ]
-});
-var completeMultipartUpload2 = createCompleteMultipartUploadMethod({
-  allowedOptions: [
-    "cacheControlMaxAge",
-    "addRandomSuffix",
-    "allowOverwrite",
-    "contentType"
-  ]
-});
-
 // src/lib/media.ts
+init_dist();
 function uid(prefix = "") {
   return prefix + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 }
@@ -46906,40 +47974,145 @@ async function putAsset(env, key, body, contentType) {
     throw new Error("Ch\u01B0a c\u1EA5u h\xECnh BLOB_READ_WRITE_TOKEN (Vercel Blob)");
   }
   const size = body instanceof Uint8Array ? body.byteLength : body.byteLength;
-  const blob = await put(key, body, {
-    access: "public",
-    addRandomSuffix: false,
-    contentType,
-    token: env.BLOB_READ_WRITE_TOKEN
-  });
-  return { key: blob.url, size, url: blob.url };
+  let blob;
+  try {
+    blob = await put(key, body, {
+      access: "public",
+      addRandomSuffix: false,
+      contentType,
+      token: env.BLOB_READ_WRITE_TOKEN
+    });
+  } catch (err) {
+    const msg = String(err?.message || "").toLowerCase();
+    if (msg.includes("private") || msg.includes("access") || msg.includes("forbidden") || msg.includes("store")) {
+      blob = await put(key, body, {
+        addRandomSuffix: false,
+        contentType,
+        token: env.BLOB_READ_WRITE_TOKEN
+      });
+    } else {
+      throw err;
+    }
+  }
+  const pathname = blob.pathname || key;
+  return { key: pathname, size, url: blob.url };
+}
+function toBase64(body) {
+  const u8 = body instanceof Uint8Array ? body : new Uint8Array(body);
+  const g = globalThis;
+  if (typeof g.Buffer?.from === "function") return g.Buffer.from(u8).toString("base64");
+  let bin = "";
+  for (let i = 0; i < u8.length; i += 8192) {
+    bin += String.fromCharCode(...u8.subarray(i, i + 8192));
+  }
+  return btoa(bin);
+}
+async function putAssetSmart(env, key, body, contentType) {
+  const size = body instanceof Uint8Array ? body.byteLength : body.byteLength;
+  if (env.BLOB_READ_WRITE_TOKEN) return putAsset(env, key, body, contentType);
+  if (size > 3 * 1024 * 1024) {
+    throw new Error("Ch\u01B0a c\u1EA5u h\xECnh BLOB_READ_WRITE_TOKEN v\xE0 d\u1EEF li\u1EC7u qu\xE1 l\u1EDBn \u0111\u1EC3 tr\u1EA3 tr\u1EF1c ti\u1EBFp");
+  }
+  return {
+    key: `inline:${key}`,
+    size,
+    url: `data:${contentType};base64,${toBase64(body)}`,
+    inline: true
+  };
 }
 function assetUrl(key) {
-  return /^https:\/\//i.test(key) ? key : `/api/media/${encodeURIComponent(key)}`;
+  if (/^data:|^blob:/i.test(key)) return key;
+  if (/^https:\/\//i.test(key)) {
+    if (/\.blob\.vercel-storage\.com\//i.test(key)) {
+      return `/api/media/${encodeURIComponent(key)}`;
+    }
+    return key;
+  }
+  return `/api/media/${encodeURIComponent(key)}`;
 }
 async function deleteAsset(env, key) {
-  if (!env.BLOB_READ_WRITE_TOKEN || !/^https:\/\//i.test(key)) return;
-  await del(key, { token: env.BLOB_READ_WRITE_TOKEN });
+  if (!env.BLOB_READ_WRITE_TOKEN) return;
+  try {
+    await del(key, { token: env.BLOB_READ_WRITE_TOKEN });
+  } catch {
+  }
 }
 var IMAGE_MODELS = ["flux", "turbo", "flux-realism"];
+function mulberry32(seed) {
+  let a2 = seed >>> 0;
+  return () => {
+    a2 |= 0;
+    a2 = a2 + 1831565813 | 0;
+    let t = Math.imul(a2 ^ a2 >>> 15, 1 | a2);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function fallbackImageSVG(prompt, width, height, seed) {
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const rnd = mulberry32(seed || 7);
+  const hue = Math.floor(rnd() * 360);
+  const hue2 = (hue + 40 + Math.floor(rnd() * 80)) % 360;
+  const words = prompt.split(/\s+/).filter((w) => /[\p{L}]/u.test(w));
+  const label = esc(words.slice(4, 9).join(" ").slice(0, 64) || "faceless forge");
+  const circles = Array.from({ length: 5 }, () => {
+    const cx = Math.round(rnd() * width);
+    const cy = Math.round(rnd() * height);
+    const r = Math.round(120 + rnd() * 340);
+    const c = `hsl(${Math.floor((hue2 + rnd() * 60) % 360)} 70% ${Math.round(45 + rnd() * 25)}%)`;
+    const o = (0.08 + rnd() * 0.16).toFixed(2);
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}" opacity="${o}" filter="url(#blur)"/>`;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(${hue} 62% 16%)"/>
+      <stop offset="0.55" stop-color="hsl(${(hue + 24) % 360} 66% 26%)"/>
+      <stop offset="1" stop-color="hsl(${hue2} 70% 12%)"/>
+    </linearGradient>
+    <filter id="blur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="90"/></filter>
+  </defs>
+  <rect width="${width}" height="${height}" fill="url(#g)"/>
+  ${circles}
+  <rect width="${width}" height="${height}" fill="none" stroke="hsl(${hue2} 80% 70% / .25)" stroke-width="2"/>
+  <text x="${width / 2}" y="${height - 110}" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="700" fill="hsl(${hue2} 90% 85% / .85)">${label}</text>
+  <text x="${width / 2}" y="${height - 70}" text-anchor="middle" font-family="ui-monospace, monospace" font-size="15" fill="hsl(0 0% 100% / .45)">FALLBACK PREVIEW \xB7 AI IMAGE OFFLINE</text>
+</svg>`;
+}
 async function generateImageBytes(prompt, opts = {}) {
   const width = opts.width || 768;
   const height = opts.height || 1344;
   const model = opts.model && IMAGE_MODELS.includes(opts.model) ? opts.model : "flux";
   const seed = opts.seed ?? Math.floor(Math.random() * 1e6);
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.slice(0, 900))}?width=${width}&height=${height}&model=${model}&seed=${seed}&nologo=true&safe=true`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5e4);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error(`Image API ${res.status}`);
-    const contentType = res.headers.get("content-type") || "image/jpeg";
-    const bytes2 = await res.arrayBuffer();
-    if (bytes2.byteLength < 1024) throw new Error("\u1EA2nh tr\u1EA3 v\u1EC1 kh\xF4ng h\u1EE3p l\u1EC7");
-    return { bytes: bytes2, contentType };
-  } finally {
-    clearTimeout(timer);
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const attemptSeed = seed + attempt * 7919;
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.slice(0, 900))}?width=${width}&height=${height}&model=${model}&seed=${attemptSeed}&nologo=true&safe=true`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5e4);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(`Image API ${res.status}`);
+      const contentType = res.headers.get("content-type") || "image/jpeg";
+      if (!/^image\//.test(contentType)) throw new Error("Ph\u1EA3n h\u1ED3i kh\xF4ng ph\u1EA3i \u1EA3nh");
+      const bytes3 = await res.arrayBuffer();
+      if (bytes3.byteLength < 1024) throw new Error("\u1EA2nh tr\u1EA3 v\u1EC1 kh\xF4ng h\u1EE3p l\u1EC7");
+      return { bytes: bytes3, contentType };
+    } catch (err) {
+      lastErr = err;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
+    } finally {
+      clearTimeout(timer);
+    }
   }
+  console.warn("image AI unavailable, using SVG fallback:", String(lastErr?.message || lastErr));
+  const svg = fallbackImageSVG(prompt, width, height, seed);
+  const bytes2 = new TextEncoder().encode(svg);
+  return {
+    bytes: bytes2.buffer.slice(bytes2.byteOffset, bytes2.byteOffset + bytes2.byteLength),
+    contentType: "image/svg+xml",
+    fallback: true
+  };
 }
 var VOICES = [
   { code: "vi", name: "Ti\u1EBFng Vi\u1EC7t", flag: "\u{1F1FB}\u{1F1F3}" },
@@ -46998,35 +48171,108 @@ function chunkText(text, limit = 190) {
 }
 async function ttsChunk(text, lang, index, total) {
   const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=${encodeURIComponent(text)}&tl=${encodeURIComponent(lang)}&total=${total}&idx=${index}&textlen=${text.length}`;
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-      Referer: "https://translate.google.com/"
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15e3);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        Referer: "https://translate.google.com/"
+      },
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error(`TTS ${res.status}`);
+    const bytes2 = await res.arrayBuffer();
+    if (bytes2.byteLength < 200) throw new Error("TTS tr\u1EA3 v\u1EC1 d\u1EEF li\u1EC7u tr\u1ED1ng");
+    return bytes2;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function fallbackToneWav(text) {
+  const SAMPLE_RATE = 16e3;
+  const parts = chunkText(text);
+  const segments = parts.map((p2) => Math.max(0.9, Math.min(8, p2.length / 14)));
+  const gap = 0.16;
+  const MAX_SAMPLES = 15e5;
+  let totalSec = segments.reduce((s, d2) => s + d2 + gap, 0.25);
+  if (totalSec * SAMPLE_RATE > MAX_SAMPLES) {
+    const speechSec = segments.reduce((s, d2) => s + d2, 0);
+    const room = MAX_SAMPLES / SAMPLE_RATE - gap * (segments.length + 1) - 0.25;
+    const scale = Math.min(1, Math.max(0.05, room / Math.max(1, speechSec)));
+    for (let i = 0; i < segments.length; i++) {
+      segments[i] = Math.max(0.3, segments[i] * scale);
     }
+    totalSec = segments.reduce((s, d2) => s + d2 + gap, 0.25);
+  }
+  const totalSamples = Math.ceil(totalSec * SAMPLE_RATE);
+  const pcm = new Int16Array(Math.min(totalSamples, MAX_SAMPLES));
+  let cursor = Math.floor(0.25 * SAMPLE_RATE);
+  segments.forEach((dur, i) => {
+    const n = Math.floor(dur * SAMPLE_RATE);
+    const freq = 420 + i % 6 * 47;
+    for (let s = 0; s < n && cursor + s < pcm.length; s++) {
+      const t = s / SAMPLE_RATE;
+      const env = Math.sin(Math.PI * Math.min(1, s / n)) ** 0.5;
+      const v2 = Math.sin(2 * Math.PI * freq * t) * 0.22 + Math.sin(2 * Math.PI * freq * 1.5 * t) * 0.09;
+      pcm[cursor + s] = Math.round(v2 * env * 32767);
+    }
+    cursor += n + Math.floor(gap * SAMPLE_RATE);
   });
-  if (!res.ok) throw new Error(`TTS ${res.status}`);
-  const bytes2 = await res.arrayBuffer();
-  if (bytes2.byteLength < 200) throw new Error("TTS tr\u1EA3 v\u1EC1 d\u1EEF li\u1EC7u tr\u1ED1ng");
-  return bytes2;
+  const dataLen = pcm.length * 2;
+  const buf = new ArrayBuffer(44 + dataLen);
+  const view = new DataView(buf);
+  const writeStr = (off, s) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+  };
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + dataLen, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, SAMPLE_RATE, true);
+  view.setUint32(28, SAMPLE_RATE * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, "data");
+  view.setUint32(40, dataLen, true);
+  new Int16Array(buf, 44).set(pcm);
+  return { bytes: new Uint8Array(buf), chunks: parts.length, fallback: true };
 }
 async function generateSpeech(text, lang = "vi") {
   const parts = chunkText(text);
   if (!parts.length) throw new Error("N\u1ED9i dung \u0111\u1ECDc tr\u1ED1ng");
-  if (parts.length > 60) throw new Error("K\u1ECBch b\u1EA3n qu\xE1 d\xE0i (t\u1ED1i \u0111a ~11.000 k\xFD t\u1EF1)");
+  if (parts.length > 72) throw new Error("K\u1ECBch b\u1EA3n qu\xE1 d\xE0i (t\u1ED1i \u0111a ~12.000 k\xFD t\u1EF1)");
   const buffers = [];
+  let missing = 0;
+  let consecutiveFail = 0;
   for (let i = 0; i < parts.length; i++) {
-    let lastErr = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    let ok = false;
+    for (let attempt = 0; attempt < 3 && !ok; attempt++) {
       try {
         buffers.push(await ttsChunk(parts[i], lang, i, parts.length));
-        lastErr = null;
-        break;
+        ok = true;
       } catch (err) {
-        lastErr = err;
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        else console.warn(`tts chunk ${i} failed:`, String(err?.message || err));
       }
     }
-    if (lastErr) throw lastErr;
+    if (ok) {
+      consecutiveFail = 0;
+    } else {
+      missing++;
+      consecutiveFail++;
+      if (consecutiveFail >= 3) {
+        missing += parts.length - i - 1;
+        break;
+      }
+    }
+  }
+  if (!buffers.length) {
+    const wav = fallbackToneWav(text);
+    return { ...wav, bytes: wav.bytes, chunks: parts.length, chars: text.length };
   }
   const total = buffers.reduce((sum, b2) => sum + b2.byteLength, 0);
   const merged = new Uint8Array(total);
@@ -47035,7 +48281,7 @@ async function generateSpeech(text, lang = "vi") {
     merged.set(new Uint8Array(buf), offset);
     offset += buf.byteLength;
   }
-  return { bytes: merged, chunks: parts.length, chars: text.length };
+  return { bytes: merged, chunks: parts.length, chars: text.length, missing };
 }
 
 // node_modules/@neondatabase/serverless/index.mjs
@@ -52275,7 +53521,41 @@ var export_types = ct.types;
 // src/lib/db.ts
 function toPostgresPlaceholders(query) {
   let index = 0;
-  return query.replace(/\?/g, () => `$${++index}`);
+  let inSingle = false;
+  let inDouble = false;
+  let out = "";
+  for (let i = 0; i < query.length; i++) {
+    const ch = query[i];
+    if (inSingle) {
+      out += ch;
+      if (ch === "'") {
+        if (query[i + 1] === "'") {
+          out += "'";
+          i++;
+        } else {
+          inSingle = false;
+        }
+      }
+      continue;
+    }
+    if (inDouble) {
+      out += ch;
+      if (ch === '"') inDouble = false;
+      continue;
+    }
+    if (ch === "'") {
+      inSingle = true;
+      out += ch;
+    } else if (ch === '"') {
+      inDouble = true;
+      out += ch;
+    } else if (ch === "?") {
+      out += `$${++index}`;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
 }
 var NeonBoundStatement = class {
   constructor(execute, query, values) {
@@ -52334,8 +53614,172 @@ function createDatabase(connectionString) {
     batch: (statements) => Promise.all(statements.map((statement) => statement.run()))
   };
 }
+var SCHEMA_SQL = `
+-- Faceless Forge \u2014 Neon Postgres schema for Vercel (auto-create)
+CREATE TABLE IF NOT EXISTS ideas (
+  id TEXT PRIMARY KEY,
+  raw_topic TEXT NOT NULL,
+  niche TEXT,
+  audience TEXT,
+  platform TEXT,
+  language TEXT DEFAULT 'Ti\u1EBFng Vi\u1EC7t',
+  tone TEXT,
+  duration_sec INTEGER DEFAULT 45,
+  goal TEXT,
+  refined_json TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS blueprints (
+  id TEXT PRIMARY KEY,
+  idea_id TEXT REFERENCES ideas(id),
+  title TEXT,
+  concept TEXT,
+  viral_score INTEGER DEFAULT 0,
+  duration_sec INTEGER DEFAULT 45,
+  language TEXT,
+  platform TEXT,
+  data_json TEXT NOT NULL,
+  status TEXT DEFAULT 'draft',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS assets (
+  id TEXT PRIMARY KEY,
+  blueprint_id TEXT REFERENCES blueprints(id),
+  kind TEXT NOT NULL,
+  shot_index INTEGER DEFAULT 0,
+  r2_key TEXT NOT NULL,
+  content_type TEXT,
+  size BIGINT DEFAULT 0,
+  prompt TEXT,
+  meta_json TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS distributions (
+  id TEXT PRIMARY KEY,
+  blueprint_id TEXT NOT NULL REFERENCES blueprints(id),
+  platform TEXT NOT NULL,
+  caption TEXT,
+  hashtags TEXT,
+  best_time TEXT,
+  pack_json TEXT,
+  status TEXT DEFAULT 'ready',
+  published_at TIMESTAMPTZ,
+  post_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS metrics (
+  id TEXT PRIMARY KEY,
+  distribution_id TEXT,
+  blueprint_id TEXT,
+  platform TEXT,
+  views INTEGER DEFAULT 0,
+  likes INTEGER DEFAULT 0,
+  comments INTEGER DEFAULT 0,
+  shares INTEGER DEFAULT 0,
+  followers_gained INTEGER DEFAULT 0,
+  revenue_usd DOUBLE PRECISION DEFAULT 0,
+  revenue_source TEXT,
+  recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS jobs (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  progress INTEGER DEFAULT 0,
+  message TEXT,
+  params_json TEXT,
+  result_json TEXT,
+  error TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS kv (
+  key TEXT PRIMARY KEY,
+  value TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blueprints_idea ON blueprints(idea_id);
+CREATE INDEX IF NOT EXISTS idx_blueprints_created ON blueprints(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_assets_blueprint ON assets(blueprint_id);
+CREATE INDEX IF NOT EXISTS idx_assets_kind ON assets(kind);
+CREATE INDEX IF NOT EXISTS idx_dist_blueprint ON distributions(blueprint_id);
+CREATE INDEX IF NOT EXISTS idx_metrics_blueprint ON metrics(blueprint_id);
+CREATE INDEX IF NOT EXISTS idx_metrics_platform ON metrics(platform);
+CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC);
+
+-- Faceless Studio: RAG documents, chunks and browser job history.
+CREATE TABLE IF NOT EXISTS rag_docs (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  size INTEGER DEFAULT 0,
+  chunk_count INTEGER DEFAULT 0,
+  char_count INTEGER DEFAULT 0,
+  source TEXT DEFAULT 'upload',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS rag_chunks (
+  id TEXT PRIMARY KEY,
+  doc_id TEXT NOT NULL REFERENCES rag_docs(id),
+  doc_name TEXT DEFAULT '',
+  idx INTEGER DEFAULT 0,
+  text TEXT NOT NULL,
+  tokens TEXT DEFAULT '[]'
+);
+
+CREATE INDEX IF NOT EXISTS idx_rag_chunks_doc ON rag_chunks(doc_id);
+CREATE INDEX IF NOT EXISTS idx_rag_docs_created ON rag_docs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS studio_jobs (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  title TEXT DEFAULT '',
+  status TEXT DEFAULT 'done',
+  meta TEXT DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_studio_jobs_kind ON studio_jobs(kind, created_at DESC);
+`;
+var schemaEnsured = false;
+async function ensureSchema(connectionString) {
+  if (!connectionString) {
+    return { ok: false, message: "Ch\u01B0a c\u1EA5u h\xECnh DATABASE_URL" };
+  }
+  if (schemaEnsured) {
+    return { ok: true, message: "Schema \u0111\xE3 \u0111\u01B0\u1EE3c \u0111\u1EA3m b\u1EA3o tr\u01B0\u1EDBc \u0111\xF3 trong instance n\xE0y" };
+  }
+  try {
+    const sql = cs(connectionString);
+    const statements = SCHEMA_SQL.split(";").map((s) => s.trim()).filter((s) => s.length > 0);
+    for (const stmt of statements) {
+      const cleaned = stmt.split("\n").filter((line) => !line.trim().startsWith("--")).join("\n").trim();
+      if (!cleaned) continue;
+      await sql.query(cleaned, []);
+    }
+    schemaEnsured = true;
+    return { ok: true, message: "\u0110\xE3 t\u1EF1 t\u1EA1o / ki\u1EC3m tra schema DB th\xE0nh c\xF4ng" };
+  } catch (e) {
+    const msg = String(e?.message || e).slice(0, 500);
+    console.error("[db] ensureSchema failed:", msg);
+    return { ok: false, message: `T\u1EF1 t\u1EA1o schema th\u1EA5t b\u1EA1i: ${msg}` };
+  }
+}
+function isMissingTableError(err) {
+  const msg = String(err?.message || err).toLowerCase();
+  return msg.includes("does not exist") || msg.includes("relation") || msg.includes("no such table");
+}
 
 // node_modules/@vercel/blob/dist/client.js
+init_chunk_YYMLUMXS();
 var crypto2 = __toESM(require("crypto"), 1);
 var import_undici3 = __toESM(require_undici(), 1);
 function createPutExtraChecks(methodName) {
@@ -52847,9 +54291,9 @@ async function buildDistributionPacks(env, bp, platforms, language = "Ti\u1EBFng
   ].join("\n");
   try {
     const data = await askJSON(env, DIST_SYSTEM, user, model);
-    const list = Array.isArray(data?.packs) ? data.packs : [];
+    const list2 = Array.isArray(data?.packs) ? data.packs : [];
     const byPlatform = /* @__PURE__ */ new Map();
-    list.forEach((p2) => {
+    list2.forEach((p2) => {
       const key = String(p2?.platform || "").toLowerCase();
       if (targets.includes(key)) byPlatform.set(key, p2);
     });
@@ -53017,6 +54461,7 @@ function parseSRT(content) {
 
 // src/lib/translate.ts
 var BATCH_SIZE = 25;
+var BATCH_CONCURRENCY = 3;
 var LINE_RE = /^\s*(\d+)\s*\|\|\s*(.*)$/;
 var TRANSLATE_LANGS = {
   vi: "Vietnamese",
@@ -53052,27 +54497,34 @@ async function translateTexts(env, texts, targetLang, model) {
     return { texts: results, translated_lines: 0, batches: batches.length, llm: false };
   }
   let translated = 0;
-  for (const idxs of batches) {
-    const payload = idxs.map((idx, j) => `${j + 1}||${texts[idx]}`).join("\n");
-    let answer = "";
-    try {
-      answer = await ask(env, SYSTEM(target), payload, model);
-    } catch {
-      continue;
-    }
-    const parsed = /* @__PURE__ */ new Map();
-    for (const line of answer.split("\n")) {
-      const m2 = LINE_RE.exec(line);
-      if (m2) parsed.set(Number(m2[1]), m2[2].trim());
-    }
-    idxs.forEach((idx, j) => {
-      const v2 = parsed.get(j + 1);
-      if (v2) {
-        results[idx] = v2;
-        translated++;
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < batches.length) {
+      const idxs = batches[cursor++];
+      const payload = idxs.map((idx, j) => `${j + 1}||${texts[idx]}`).join("\n");
+      let answer = "";
+      try {
+        answer = await ask(env, SYSTEM(target), payload, model);
+      } catch {
+        continue;
       }
-    });
-  }
+      const parsed = /* @__PURE__ */ new Map();
+      for (const line of answer.split("\n")) {
+        const m2 = LINE_RE.exec(line);
+        if (m2) parsed.set(Number(m2[1]), m2[2].trim());
+      }
+      idxs.forEach((idx, j) => {
+        const v2 = parsed.get(j + 1);
+        if (v2) {
+          results[idx] = v2;
+          translated++;
+        }
+      });
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(BATCH_CONCURRENCY, batches.length) }, () => worker())
+  );
   return { texts: results, translated_lines: translated, batches: batches.length, llm: true };
 }
 async function translateSRT(env, srtContent, targetLang, model) {
@@ -53140,17 +54592,22 @@ async function ingestDocument(env, name, text, source = "upload") {
     `INSERT INTO rag_docs (id, name, size, chunk_count, char_count, source, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).bind(doc.id, doc.name, doc.size, doc.chunk_count, doc.char_count, doc.source, doc.created_at).run();
-  const stmt = env.DB.prepare(
-    `INSERT INTO rag_chunks (id, doc_id, doc_name, idx, text, tokens) VALUES (?, ?, ?, ?, ?, ?)`
-  );
+  const CHUNK_COLS = 6;
   const BATCH = 20;
   for (let i = 0; i < chunks.length; i += BATCH) {
     const slice = chunks.slice(i, i + BATCH);
-    await env.DB.batch(
-      slice.map(
-        (c, k) => stmt.bind(`${id}-${i + k}`, id, doc.name, i + k, c, JSON.stringify(tokenize(c)))
-      )
-    );
+    const rowMarks = slice.map(() => `(${Array.from({ length: CHUNK_COLS }, () => "?").join(", ")})`).join(", ");
+    const values = slice.flatMap((c, k) => [
+      `${id}-${i + k}`,
+      id,
+      doc.name,
+      i + k,
+      c,
+      JSON.stringify(tokenize(c))
+    ]);
+    await env.DB.prepare(
+      `INSERT INTO rag_chunks (id, doc_id, doc_name, idx, text, tokens) VALUES ${rowMarks}`
+    ).bind(...values).run();
   }
   return doc;
 }
@@ -53302,6 +54759,531 @@ Y\xCAU C\u1EA6U: Vi\u1EBFt l\u1EDDi b\xECnh video kho\u1EA3ng ${words} t\u1EEB (
   };
 }
 
+// src/lib/gemini.ts
+var API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+var GeminiError = class extends Error {
+};
+function hasGemini(env) {
+  return Boolean(env.GEMINI_API_KEY);
+}
+var GEMINI_IMAGE_MODELS = [
+  "gemini-3.1-flash-image",
+  "gemini-3.1-flash-lite-image",
+  "gemini-2.5-flash-image"
+];
+var VEO_MODELS = [
+  "veo-3.1-fast-generate-preview",
+  "veo-3.1-generate-preview"
+];
+async function geminiFetch(env, path, init, timeoutMs = 5e4) {
+  const key = env.GEMINI_API_KEY;
+  if (!key) throw new GeminiError("Ch\u01B0a c\u1EA5u h\xECnh GEMINI_API_KEY");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers = new Headers(init.headers || {});
+    headers.set("x-goog-api-key", key);
+    const res = await fetch(`${API_BASE}${path}`, { ...init, headers, signal: controller.signal });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new GeminiError(friendlyGeminiError(res.status, text));
+    }
+    return res;
+  } catch (err) {
+    if (err?.name === "AbortError") throw new GeminiError("Gemini qu\xE1 th\u1EDFi gian ch\u1EDD");
+    throw err instanceof GeminiError ? err : new GeminiError(String(err?.message || err));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function friendlyGeminiError(status, raw2) {
+  let message = raw2.slice(0, 380);
+  try {
+    const parsed = JSON.parse(raw2);
+    if (parsed?.error?.message) message = String(parsed.error.message).slice(0, 380);
+  } catch {
+  }
+  if (status === 401 || status === 403) {
+    return `Gemini t\u1EEB ch\u1ED1i key (${status}): ${message}. Ki\u1EC3m tra key trong AI Studio v\xE0 project \u0111\xE3 b\u1EADt Generative Language API.`;
+  }
+  if (status === 404) {
+    return `Model kh\xF4ng kh\u1EA3 d\u1EE5ng v\u1EDBi key n\xE0y (404): ${message}. Th\u1EED model kh\xE1c trong /api/config.`;
+  }
+  if (status === 429) {
+    return `H\u1EBFt h\u1EA1n m\u1EE9c/l\u01B0\u1EE3t g\u1ECDi (429): ${message}. Veo v\xE0 \u1EA3nh ch\u1EA5t l\u01B0\u1EE3ng cao c\u1EA7n b\u1EADt Billing cho project.`;
+  }
+  return `Gemini ${status}: ${message}`;
+}
+async function generateGeminiImage(env, prompt, opts = {}) {
+  const model = GEMINI_IMAGE_MODELS.includes(opts.model) ? String(opts.model) : GEMINI_IMAGE_MODELS[0];
+  const aspect = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"].includes(
+    String(opts.aspectRatio)
+  ) ? String(opts.aspectRatio) : "9:16";
+  const res = await geminiFetch(env, `/models/${model}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt.slice(0, 4e3) }] }],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"],
+        imageConfig: { aspectRatio: aspect }
+      }
+    })
+  });
+  const data = await res.json();
+  if (data?.promptFeedback?.blockReason) {
+    throw new GeminiError(`Prompt b\u1ECB ch\u1EB7n b\u1EDFi b\u1ED9 l\u1ECDc an to\xE0n: ${data.promptFeedback.blockReason}`);
+  }
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  for (const part of parts) {
+    const inline = part?.inlineData || part?.inline_data;
+    if (inline?.data) {
+      const g = globalThis;
+      const bytes2 = g.Buffer ? g.Buffer.from(String(inline.data), "base64").buffer.slice(0) : Uint8Array.from(atob(String(inline.data)), (c) => c.charCodeAt(0)).buffer;
+      if (bytes2.byteLength < 1024) throw new GeminiError("\u1EA2nh Gemini tr\u1EA3 v\u1EC1 kh\xF4ng h\u1EE3p l\u1EC7");
+      return { bytes: bytes2, contentType: String(inline.mimeType || inline.mime_type || "image/png") };
+    }
+  }
+  const textPart = parts.map((p2) => p2?.text).filter(Boolean).join(" ").slice(0, 200);
+  throw new GeminiError(`Gemini kh\xF4ng tr\u1EA3 \u1EA3nh${textPart ? ` (ph\u1EA3n h\u1ED3i: ${textPart})` : ""}`);
+}
+async function startVeoOperation(env, prompt, opts = {}) {
+  const model = VEO_MODELS.includes(opts.model) ? String(opts.model) : VEO_MODELS[0];
+  const aspect = opts.aspectRatio === "16:9" ? "16:9" : "9:16";
+  const res = await geminiFetch(
+    env,
+    `/models/${model}:predictLongRunning`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instances: [{ prompt: prompt.slice(0, 2500) }],
+        parameters: { aspectRatio: aspect }
+      })
+    },
+    3e4
+  );
+  const data = await res.json();
+  const name = data?.name;
+  if (!name || typeof name !== "string") {
+    throw new GeminiError("Veo kh\xF4ng tr\u1EA3 v\u1EC1 operation name");
+  }
+  return name;
+}
+async function getVeoOperationStatus(env, name) {
+  if (!/^models\/[\w.-]+\/operations\/[\w.-]+$/i.test(name)) {
+    throw new GeminiError("Operation name kh\xF4ng h\u1EE3p l\u1EC7");
+  }
+  const res = await geminiFetch(env, `/${name}`, { method: "GET" }, 2e4);
+  const data = await res.json();
+  if (!data?.done) return { done: false };
+  if (data?.error?.message) return { done: true, error: String(data.error.message).slice(0, 300) };
+  const uri = data?.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri;
+  if (!uri || typeof uri !== "string") {
+    return { done: true, error: "Ho\xE0n t\u1EA5t nh\u01B0ng kh\xF4ng t\xECm th\u1EA5y video URI" };
+  }
+  if (!/^https:\/\/generativelanguage\.googleapis\.com\//i.test(uri)) {
+    return { done: true, error: "Video URI kh\xF4ng \u0111\xFAng ngu\u1ED3n Google" };
+  }
+  return { done: true, videoUri: uri };
+}
+async function downloadVeoVideo(env, uri) {
+  const key = String(env.GEMINI_API_KEY || "");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 55e3);
+  try {
+    const fileRes = await fetch(uri, { headers: { "x-goog-api-key": key }, signal: controller.signal, redirect: "follow" });
+    if (!fileRes.ok) throw new GeminiError(`T\u1EA3i video th\u1EA5t b\u1EA1i (${fileRes.status})`);
+    const bytes2 = await fileRes.arrayBuffer();
+    if (bytes2.byteLength < 5e4) throw new GeminiError("Video t\u1EA3i v\u1EC1 qu\xE1 nh\u1ECF \u2014 d\u1EEF li\u1EC7u kh\xF4ng h\u1EE3p l\u1EC7");
+    return bytes2;
+  } catch (err) {
+    if (err?.name === "AbortError") throw new GeminiError("T\u1EA3i video qu\xE1 th\u1EDFi gian ch\u1EDD");
+    throw err instanceof GeminiError ? err : new GeminiError(String(err?.message || err));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// src/lib/kira.ts
+var KIRA_MODELS = {
+  "kira-3.5-pro": "kira-3.5-pro",
+  "kira-3.5-flash": "kira-3.5-flash",
+  "kira-2.5-pro": "kira-2.5-pro",
+  "kira-2.5-flash": "kira-2.5-flash",
+  "kira-mini-1.0": "kira-mini-1.0",
+  // aliases for compatibility
+  "kira-auto": "kira-3.5-flash",
+  "kira-3.0": "kira-3.5-flash",
+  "kira-2.0": "kira-2.5-flash",
+  "kira-2.5": "kira-2.5-flash",
+  "kira-3.0-pro": "kira-3.5-pro"
+};
+var DEFAULT_KIRA_MODEL = "kira-3.5-flash";
+var KIRA_IMAGE_MODELS = ["kira-3.0-image", "kira-2.0-image"];
+var DEFAULT_KIRA_IMAGE_MODEL = "kira-3.0-image";
+var KIRA_IMAGE_ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:3", "3:4"];
+var KIRA_TTS_MODELS = ["kira-3.0-flash-tts", "kira-2.0-flash-tts"];
+var DEFAULT_KIRA_TTS_MODEL = "kira-3.0-flash-tts";
+var KIRA_VOICES = [
+  "Kore",
+  "Fenrir",
+  "Puck",
+  "Charon",
+  "Aoede",
+  // OpenAI compatible aliases
+  "alloy",
+  // -> Kore
+  "echo",
+  // -> Fenrir
+  "fable",
+  // -> Puck
+  "onyx",
+  // -> Charon
+  "nova"
+  // -> Aoede
+];
+var KIRA_VOICE_MAP = {
+  alloy: "Kore",
+  echo: "Fenrir",
+  fable: "Puck",
+  onyx: "Charon",
+  nova: "Aoede",
+  // allow lowercase input
+  kore: "Kore",
+  fenrir: "Fenrir",
+  puck: "Puck",
+  charon: "Charon",
+  aoede: "Aoede"
+};
+var DEFAULT_KIRA_VOICE = "Kore";
+var KIRA_VIDEO_MODELS = ["kira-3.0-video", "kira-3.0-video-flash"];
+var DEFAULT_KIRA_VIDEO_MODEL = "kira-3.0-video";
+var KIRA_VIDEO_ASPECT_RATIOS = ["16:9", "9:16", "1:1"];
+var KIRA_VIDEO_DURATIONS = [4, 6, 8];
+var KiraError = class extends Error {
+};
+function resolveKira2(env) {
+  const rawKey = env.KIRA_API_KEY?.trim() || env.KIRA_API_KEY?.trim() || "";
+  if (!rawKey) return null;
+  const rawBase = env.KIRA_BASE_URL || env.KIRA_BASE_URL || "https://kiraai.vn/api/v1";
+  const baseURL = String(rawBase).replace(/\/$/, "");
+  return { apiKey: String(rawKey), baseURL };
+}
+function hasKira(env) {
+  return Boolean(resolveKira2(env));
+}
+function getKiraModel(requested, env) {
+  if (env?.KIRA_MODEL) return env.KIRA_MODEL;
+  if (requested && KIRA_MODELS[requested]) return KIRA_MODELS[requested];
+  if (requested && Object.values(KIRA_MODELS).includes(requested)) return requested;
+  return DEFAULT_KIRA_MODEL;
+}
+function getKiraImageModel(requested) {
+  if (!requested) return DEFAULT_KIRA_IMAGE_MODEL;
+  const lower = requested.toLowerCase();
+  if (KIRA_IMAGE_MODELS.includes(lower)) return lower;
+  if (KIRA_IMAGE_MODELS.includes(requested)) return requested;
+  if (lower.includes("3.0") || lower.includes("image-1") || lower.includes("image-pro") || lower.includes("flux") || lower.includes("dall-e")) {
+    return "kira-3.0-image";
+  }
+  return DEFAULT_KIRA_IMAGE_MODEL;
+}
+function getKiraTTSModel(requested) {
+  if (!requested) return DEFAULT_KIRA_TTS_MODEL;
+  const lower = requested.toLowerCase();
+  if (KIRA_TTS_MODELS.includes(lower)) return lower;
+  if (KIRA_TTS_MODELS.includes(requested)) return requested;
+  if (lower.includes("2.0")) return "kira-2.0-flash-tts";
+  return DEFAULT_KIRA_TTS_MODEL;
+}
+function getKiraVoice(requested) {
+  if (!requested) return DEFAULT_KIRA_VOICE;
+  const mapped = KIRA_VOICE_MAP[requested] || KIRA_VOICE_MAP[requested.toLowerCase()];
+  if (mapped) return mapped;
+  if (KIRA_VOICES.includes(requested)) return requested;
+  const lower = requested.toLowerCase();
+  for (const v2 of KIRA_VOICES) {
+    if (v2.toLowerCase() === lower) return v2;
+  }
+  return DEFAULT_KIRA_VOICE;
+}
+function getKiraVideoModel(requested) {
+  if (!requested) return DEFAULT_KIRA_VIDEO_MODEL;
+  if (KIRA_VIDEO_MODELS.includes(requested)) return requested;
+  const lower = requested.toLowerCase();
+  if (KIRA_VIDEO_MODELS.includes(lower)) return lower;
+  if (lower.includes("flash")) return "kira-3.0-video-flash";
+  return DEFAULT_KIRA_VIDEO_MODEL;
+}
+function getKiraAspectRatio(requested, fallback = "9:16") {
+  if (!requested) return fallback;
+  if (KIRA_IMAGE_ASPECT_RATIOS.includes(requested)) return requested;
+  if (KIRA_VIDEO_ASPECT_RATIOS.includes(requested)) return requested;
+  return fallback;
+}
+function b64ToBytes(b64) {
+  const clean = b64.replace(/\s+/g, "");
+  const bin = atob(clean);
+  const bytes2 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes2[i] = bin.charCodeAt(i);
+  return bytes2;
+}
+function guessImageContentType(bytes2) {
+  if (bytes2.length >= 8 && bytes2[0] === 137 && bytes2[1] === 80) return "image/png";
+  if (bytes2.length >= 3 && bytes2[0] === 255 && bytes2[1] === 216) return "image/jpeg";
+  if (bytes2.length >= 4 && bytes2[0] === 82 && bytes2[1] === 73) return "image/webp";
+  return "image/png";
+}
+async function askKira(env, system, user, model = DEFAULT_KIRA_MODEL, timeoutMs = 5e4) {
+  const resolved = resolveKira2(env);
+  if (!resolved) throw new KiraError("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY");
+  const chosen = getKiraModel(model, env);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${resolved.baseURL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resolved.apiKey}`
+      },
+      body: JSON.stringify({
+        model: chosen,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user }
+        ]
+      }),
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new KiraError(`Kira ${res.status}: ${detail.slice(0, 400)}`);
+    }
+    const data = await res.json();
+    let text;
+    if (typeof data?.choices?.[0]?.message?.content === "string") {
+      text = data.choices[0].message.content;
+    } else if (typeof data?.choices?.[0]?.text === "string") {
+      text = data.choices[0].text;
+    } else if (typeof data?.output?.[0]?.content?.[0]?.text === "string") {
+      text = data.output[0].content[0].text;
+    } else if (typeof data?.output_text === "string") {
+      text = data.output_text;
+    }
+    if (!text || !text.trim()) throw new KiraError("Kira tr\u1EA3 v\u1EC1 n\u1ED9i dung tr\u1ED1ng");
+    return text.trim();
+  } catch (err) {
+    if (err?.name === "AbortError") throw new KiraError("Kira qu\xE1 th\u1EDDi gian ch\u1EDD");
+    throw err instanceof KiraError ? err : new KiraError(String(err?.message || err));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function generateKiraImage(env, prompt, opts = {}, timeoutMs = 5e4) {
+  const resolved = resolveKira2(env);
+  if (!resolved) throw new KiraError("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY");
+  const model = getKiraImageModel(opts.model);
+  let aspect_ratio = opts.aspect_ratio || "9:16";
+  if (opts.width && opts.height) {
+    const ratio = opts.width / opts.height;
+    if (ratio > 1.5) aspect_ratio = "16:9";
+    else if (ratio < 0.7) aspect_ratio = "9:16";
+    else if (Math.abs(ratio - 1) < 0.1) aspect_ratio = "1:1";
+    else if (ratio > 1) aspect_ratio = "4:3";
+    else aspect_ratio = "3:4";
+  }
+  if (!KIRA_IMAGE_ASPECT_RATIOS.includes(aspect_ratio)) {
+    aspect_ratio = "9:16";
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const payload = {
+      model,
+      prompt,
+      aspect_ratio
+    };
+    const res = await fetch(`${resolved.baseURL}/images/generations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resolved.apiKey}`
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new KiraError(`Kira Image ${res.status}: ${detail.slice(0, 500)}`);
+    }
+    const data = await res.json();
+    const first = data?.data?.[0];
+    if (!first) throw new KiraError("Kira Image tr\u1EA3 v\u1EC1 r\u1ED7ng");
+    if (first.b64_json) {
+      const bytes2 = b64ToBytes(first.b64_json);
+      return { bytes: bytes2.buffer, contentType: first.mime_type || guessImageContentType(bytes2) };
+    }
+    if (first.url) {
+      const imgRes = await fetch(first.url, { signal: controller.signal });
+      if (!imgRes.ok) throw new KiraError(`Kira Image URL fetch ${imgRes.status}`);
+      const ct2 = imgRes.headers.get("content-type") || "image/png";
+      const buf = await imgRes.arrayBuffer();
+      return { bytes: buf, contentType: ct2 };
+    }
+    throw new KiraError("Kira Image kh\xF4ng tr\u1EA3 v\u1EC1 b64_json hay url");
+  } catch (err) {
+    if (err?.name === "AbortError") throw new KiraError("Kira Image qu\xE1 th\u1EDDi gian ch\u1EDD");
+    throw err instanceof KiraError ? err : new KiraError(String(err?.message || err));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function generateKiraSpeech(env, text, opts = {}, timeoutMs = 5e4) {
+  const resolved = resolveKira2(env);
+  if (!resolved) throw new KiraError("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY");
+  const voice = getKiraVoice(opts.voice);
+  const model = getKiraTTSModel(opts.model);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const payload = {
+      model,
+      input: text,
+      voice
+    };
+    const res = await fetch(`${resolved.baseURL}/audio/speech`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resolved.apiKey}`
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new KiraError(`Kira Speech ${res.status}: ${detail.slice(0, 500)}`);
+    }
+    const ct2 = res.headers.get("content-type") || "";
+    if (ct2.includes("application/json")) {
+      const data = await res.json();
+      let b64;
+      if (data?.data?.[0]?.b64_json) b64 = data.data[0].b64_json;
+      else if (data?.b64_json) b64 = data.b64_json;
+      else if (data?.audio) b64 = data.audio;
+      else if (data?.url) {
+        const audRes = await fetch(data.url, { signal: controller.signal });
+        if (!audRes.ok) throw new KiraError(`Kira Speech URL fetch ${audRes.status}`);
+        const buf2 = await audRes.arrayBuffer();
+        const act = audRes.headers.get("content-type") || "audio/mpeg";
+        return { bytes: buf2, contentType: act };
+      }
+      if (b64) {
+        const bytes2 = b64ToBytes(b64);
+        const isWav = bytes2.length > 4 && bytes2[0] === 82 && bytes2[1] === 73;
+        return { bytes: bytes2.buffer, contentType: isWav ? "audio/wav" : "audio/mpeg" };
+      }
+      throw new KiraError("Kira Speech JSON kh\xF4ng ch\u1EE9a audio");
+    }
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength < 100) throw new KiraError("Kira Speech tr\u1EA3 v\u1EC1 qu\xE1 nh\u1ECF");
+    const contentType = ct2 || "audio/mpeg";
+    return { bytes: buf, contentType };
+  } catch (err) {
+    if (err?.name === "AbortError") throw new KiraError("Kira Speech qu\xE1 th\u1EDDi gian ch\u1EDD");
+    throw err instanceof KiraError ? err : new KiraError(String(err?.message || err));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function generateKiraVideoStart(env, prompt, opts = {}, timeoutMs = 5e4) {
+  const resolved = resolveKira2(env);
+  if (!resolved) throw new KiraError("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY");
+  const model = getKiraVideoModel(opts.model);
+  const aspect_ratio = getKiraAspectRatio(opts.aspect_ratio, "16:9");
+  const duration_seconds = opts.duration_seconds && KIRA_VIDEO_DURATIONS.includes(opts.duration_seconds) ? opts.duration_seconds : 6;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const payload = {
+      model,
+      prompt,
+      aspect_ratio,
+      duration_seconds
+    };
+    const res = await fetch(`${resolved.baseURL}/videos/generations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resolved.apiKey}`
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new KiraError(`Kira Video ${res.status}: ${detail.slice(0, 500)}`);
+    }
+    const data = await res.json();
+    const id = data?.id || data?.operation || data?.operation_id || data?.data?.id;
+    if (!id) throw new KiraError("Kira Video kh\xF4ng tr\u1EA3 v\u1EC1 operation id");
+    return { operationId: String(id), model };
+  } catch (err) {
+    if (err?.name === "AbortError") throw new KiraError("Kira Video qu\xE1 th\u1EDDi gian ch\u1EDD");
+    throw err instanceof KiraError ? err : new KiraError(String(err?.message || err));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function getKiraVideoOperationStatus(env, operationId, timeoutMs = 5e4) {
+  const resolved = resolveKira2(env);
+  if (!resolved) throw new KiraError("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${resolved.baseURL}/videos/operations/${encodeURIComponent(operationId)}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${resolved.apiKey}`
+      },
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new KiraError(`Kira Video status ${res.status}: ${detail.slice(0, 500)}`);
+    }
+    const data = await res.json();
+    if (data?.error) {
+      return { done: true, error: String(data.error?.message || data.error).slice(0, 500) };
+    }
+    if (!data?.done) {
+      return { done: false };
+    }
+    if (data?.error) {
+      return { done: true, error: String(data.error).slice(0, 500) };
+    }
+    const first = data?.data?.[0];
+    if (!first?.b64_json) {
+      if (first?.url) {
+        const vRes = await fetch(first.url, { signal: controller.signal });
+        if (!vRes.ok) throw new KiraError(`Kira Video URL fetch ${vRes.status}`);
+        const buf = await vRes.arrayBuffer();
+        return { done: true, bytes: buf, contentType: vRes.headers.get("content-type") || "video/mp4" };
+      }
+      throw new KiraError("Kira Video done nh\u01B0ng kh\xF4ng c\xF3 b64_json");
+    }
+    const bytes2 = b64ToBytes(first.b64_json);
+    return { done: true, bytes: bytes2.buffer, contentType: first.mime_type || "video/mp4" };
+  } catch (err) {
+    if (err?.name === "AbortError") throw new KiraError("Kira Video status qu\xE1 th\u1EDDi gian ch\u1EDD");
+    throw err instanceof KiraError ? err : new KiraError(String(err?.message || err));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // src/page.tsx
 function renderPage() {
   return `<!doctype html>
@@ -53312,6 +55294,7 @@ function renderPage() {
 <meta name="theme-color" content="#071314" />
 <meta name="description" content="Faceless Forge \u2014 t\u1EEB \xFD t\u01B0\u1EDFng \u0111\u1EBFn video viral v\xE0 thu nh\u1EADp th\u1EE5 \u0111\u1ED9ng tr\xEAn TikTok, Facebook, Instagram, X." />
 <title>Faceless Forge \u2014 Video Production OS</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -53558,6 +55541,7 @@ function renderStudio() {
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Faceless Studio \u2014 STT \xB7 D\u1ECBch SRT \xB7 Dub \xB7 B\u0103m \xB7 RAG (WebAssembly)</title>
 <meta name="description" content="5 c\xF4ng c\u1EE5 media ch\u1EA1y ho\xE0n to\xE0n b\u1EB1ng WebAssembly trong tr\xECnh duy\u1EC7t: nh\u1EADn di\u1EC7n gi\u1ECDng n\xF3i, d\u1ECBch ph\u1EE5 \u0111\u1EC1, thuy\u1EBFt minh l\u1EA1i video, b\u0103m video, h\u1ECFi \u0111\xE1p t\xE0i li\u1EC7u." />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet" />
@@ -54238,9 +56222,9 @@ function fallbackTrends(niche, count) {
 function normaliseTrends(data, niche, count) {
   const wanted = clampCount(count);
   const raw2 = data && typeof data === "object" ? data : null;
-  const list = Array.isArray(raw2?.trends) ? raw2.trends : [];
+  const list2 = Array.isArray(raw2?.trends) ? raw2.trends : [];
   const cleaned = [];
-  for (const item of list) {
+  for (const item of list2) {
     if (!item || typeof item !== "object") continue;
     const rec = item;
     const topic = cleanString(rec.topic);
@@ -54394,6 +56378,18 @@ async function reviewBlueprint(env, blueprint, opts = {}) {
 // src/index.tsx
 var app = new Hono2();
 app.use("/api/*", cors());
+var dbInitPromise = null;
+app.use("/api/*", async (c, next) => {
+  if (!dbInitPromise && c.env.DATABASE_URL) {
+    dbInitPromise = ensureSchema(c.env.DATABASE_URL).catch((e) => {
+      console.warn("[db] auto init failed:", String(e?.message || e).slice(0, 200));
+    });
+    if (c.req.path === "/api/health" || c.req.path === "/api/db/init") {
+      await dbInitPromise;
+    }
+  }
+  await next();
+});
 var now = () => (/* @__PURE__ */ new Date()).toISOString();
 var bad = (msg, status = 400) => ({ error: msg, status });
 var safeJSON = (raw2) => {
@@ -54405,21 +56401,48 @@ var safeJSON = (raw2) => {
 };
 app.get("/api/health", async (c) => {
   let db = false;
+  let autoCreated = false;
   try {
     await c.env.DB.prepare("SELECT 1").first();
     db = true;
-  } catch {
-    db = false;
+  } catch (e) {
+    if (isMissingTableError(e) && c.env.DATABASE_URL) {
+      try {
+        const res = await ensureSchema(c.env.DATABASE_URL);
+        if (res.ok) {
+          autoCreated = true;
+          await c.env.DB.prepare("SELECT 1").first();
+          db = true;
+        }
+      } catch {
+        db = false;
+      }
+    } else {
+      db = false;
+    }
   }
   const blob = Boolean(c.env.BLOB_READ_WRITE_TOKEN);
   return c.json({
     status: "ok",
     db,
+    db_auto_created: autoCreated,
     blob,
     llm: hasLLM(c.env),
+    kira: hasKira(c.env),
+    gemini: hasGemini(c.env),
     engines: { image: true, tts: true, video: "browser-canvas" },
     time: now()
   });
+});
+app.get("/api/db/init", async (c) => {
+  if (!c.env.DATABASE_URL) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh DATABASE_URL", 503), 503);
+  const res = await ensureSchema(c.env.DATABASE_URL);
+  return c.json({ ...res, time: now() }, res.ok ? 200 : 500);
+});
+app.post("/api/db/init", async (c) => {
+  if (!c.env.DATABASE_URL) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh DATABASE_URL", 503), 503);
+  const res = await ensureSchema(c.env.DATABASE_URL);
+  return c.json({ ...res, time: now() }, res.ok ? 200 : 500);
 });
 app.get(
   "/api/config",
@@ -54429,9 +56452,151 @@ app.get(
     image_models: IMAGE_MODELS,
     voices: VOICES,
     platforms: PLATFORMS.map((p2) => ({ key: p2, ...PLATFORM_SPECS[p2] })),
-    llm: hasLLM(c.env)
+    llm: hasLLM(c.env),
+    kira: hasKira(c.env),
+    kira_models: Object.keys(KIRA_MODELS),
+    default_kira_model: DEFAULT_KIRA_MODEL,
+    kira_image_models: KIRA_IMAGE_MODELS,
+    default_kira_image_model: DEFAULT_KIRA_IMAGE_MODEL,
+    kira_tts_models: KIRA_TTS_MODELS,
+    default_kira_tts_model: DEFAULT_KIRA_TTS_MODEL,
+    kira_voices: KIRA_VOICES,
+    default_kira_voice: DEFAULT_KIRA_VOICE,
+    kira_video_models: KIRA_VIDEO_MODELS,
+    default_kira_video_model: DEFAULT_KIRA_VIDEO_MODEL,
+    gemini: hasGemini(c.env),
+    gemini_image_models: GEMINI_IMAGE_MODELS,
+    veo_models: VEO_MODELS
   })
 );
+app.post("/api/kira/chat", async (c) => {
+  if (!hasKira(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY", 503), 503);
+  const body = await c.req.json().catch(() => ({}));
+  const system = String(body.system || "B\u1EA1n l\xE0 tr\u1EE3 l\xFD AI h\u1EEFu \xEDch").slice(0, 2e3);
+  const user = String(body.user || body.prompt || "").trim();
+  if (!user) return c.json(bad("Thi\u1EBFu n\u1ED9i dung user"), 400);
+  try {
+    const text = await askKira(c.env, system, user, String(body.model || DEFAULT_KIRA_MODEL));
+    return c.json({ text, model: String(body.model || DEFAULT_KIRA_MODEL), provider: "kira", ai: true });
+  } catch (e) {
+    return c.json(bad(`Kira th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 300)}`, 502), 502);
+  }
+});
+app.get(
+  "/api/kira/models",
+  (c) => c.json({
+    models: Object.entries(KIRA_MODELS).map(([k, v2]) => ({ id: k, name: v2 })),
+    image_models: KIRA_IMAGE_MODELS,
+    tts_models: KIRA_TTS_MODELS,
+    video_models: KIRA_VIDEO_MODELS,
+    voices: KIRA_VOICES,
+    default: DEFAULT_KIRA_MODEL,
+    default_image: DEFAULT_KIRA_IMAGE_MODEL,
+    default_tts: DEFAULT_KIRA_TTS_MODEL,
+    default_video: DEFAULT_KIRA_VIDEO_MODEL,
+    default_voice: DEFAULT_KIRA_VOICE,
+    has_key: hasKira(c.env)
+  })
+);
+app.post("/api/kira/image", async (c) => {
+  if (!hasKira(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY", 503), 503);
+  const body = await c.req.json().catch(() => ({}));
+  const prompt = String(body.prompt || "").trim();
+  if (!prompt) return c.json(bad("Prompt tr\u1ED1ng"), 400);
+  try {
+    const img = await generateKiraImage(c.env, prompt, {
+      model: String(body.model || body.kira_model || ""),
+      width: Number(body.width) || 768,
+      height: Number(body.height) || 1344,
+      aspect_ratio: String(body.aspect_ratio || "9:16")
+    });
+    const key = `images/kira_${uid("img_")}.png`;
+    const saved = await putAssetSmart(c.env, key, img.bytes, img.contentType);
+    const assetId = uid("as_");
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at) VALUES (?,?,?,?,?,?,?,?,?)`
+        ).bind(assetId, String(body.blueprint_id), "image", Number(body.shot_index) || 0, saved.key, img.contentType, saved.size, prompt.slice(0, 800), now()).run();
+      } catch {
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: img.contentType, provider: "kira" });
+  } catch (e) {
+    return c.json(bad(`Kira Image th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 300)}`, 502), 502);
+  }
+});
+app.post("/api/kira/speech", async (c) => {
+  if (!hasKira(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY", 503), 503);
+  const body = await c.req.json().catch(() => ({}));
+  const text = String(body.text || "").trim();
+  if (!text) return c.json(bad("Thi\u1EBFu text"), 400);
+  try {
+    const aud = await generateKiraSpeech(c.env, text, {
+      voice: String(body.voice || ""),
+      model: String(body.model || "")
+    });
+    const key = `audio/kira_${uid("tts_")}.mp3`;
+    const saved = await putAssetSmart(c.env, key, aud.bytes, aud.contentType);
+    const assetId = uid("as_");
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, meta_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`
+        ).bind(assetId, String(body.blueprint_id), "audio", 0, saved.key, aud.contentType, saved.size, text.slice(0, 500), JSON.stringify({ voice: body.voice || DEFAULT_KIRA_VOICE, provider: "kira" }), now()).run();
+      } catch {
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: aud.contentType, provider: "kira" });
+  } catch (e) {
+    return c.json(bad(`Kira Speech th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 300)}`, 502), 502);
+  }
+});
+app.post("/api/kira/video", async (c) => {
+  if (!hasKira(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY", 503), 503);
+  const body = await c.req.json().catch(() => ({}));
+  const prompt = String(body.prompt || "").trim();
+  if (prompt.length < 8) return c.json(bad("Prompt video qu\xE1 ng\u1EAFn (t\u1ED1i thi\u1EC3u 8 k\xFD t\u1EF1)"), 400);
+  try {
+    const { operationId, model } = await generateKiraVideoStart(c.env, prompt, {
+      model: String(body.model || ""),
+      aspect_ratio: String(body.aspect_ratio || "9:16"),
+      duration_seconds: Number(body.duration_seconds) || 6
+    });
+    return c.json({ operation: operationId, operationId, model, provider: "kira" });
+  } catch (e) {
+    return c.json(bad(`Kira Video th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 300)}`, 502), 502);
+  }
+});
+app.get("/api/kira/video/status", async (c) => {
+  if (!hasKira(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY", 503), 503);
+  const id = String(c.req.query("id") || c.req.query("operation") || "");
+  const blueprintId = String(c.req.query("blueprint_id") || "");
+  if (!id) return c.json(bad("Thi\u1EBFu operation id"), 400);
+  try {
+    const status = await getKiraVideoOperationStatus(c.env, id);
+    if (!status.done) return c.json({ done: false });
+    if ("error" in status) return c.json({ done: true, error: status.error });
+    if (c.env.BLOB_READ_WRITE_TOKEN) {
+      const key = `videos/kira_${uid("v_")}.mp4`;
+      const saved = await putAsset(c.env, key, status.bytes, status.contentType);
+      const assetId = uid("as_");
+      if (blueprintId) {
+        try {
+          await c.env.DB.prepare(
+            `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at) VALUES (?,?,?,?,?,?,?,?,?)`
+          ).bind(assetId, blueprintId, "video", 0, saved.key, status.contentType, saved.size, `kira-video:${id}`.slice(0, 500), now()).run();
+          await c.env.DB.prepare(`UPDATE blueprints SET status = 'rendered', updated_at = ? WHERE id = ?`).bind(now(), blueprintId).run();
+        } catch {
+        }
+      }
+      return c.json({ done: true, id: assetId, url: saved.url, key, size: saved.size, provider: "kira" });
+    }
+    return c.json({ done: true, provider: "kira", note: "Video s\u1EB5n s\xE0ng nh\u01B0ng ch\u01B0a l\u01B0u cloud \u2014 c\u1EA7n BLOB_READ_WRITE_TOKEN", bytes_length: status.bytes.byteLength });
+  } catch (e) {
+    return c.json(bad(`Kira Video status th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 300)}`, 502), 502);
+  }
+});
 app.post("/api/ideas/generate", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const niche = String(body.niche || "").trim();
@@ -54498,13 +56663,22 @@ app.post("/api/forge/blueprint", async (c) => {
   };
   const blueprint = await generateBlueprint(c.env, brief);
   const id = uid("bp_");
+  let ideaId = null;
+  if (body.idea_id) {
+    try {
+      const exists = await c.env.DB.prepare(`SELECT 1 FROM ideas WHERE id = ?`).bind(String(body.idea_id)).first();
+      ideaId = exists ? String(body.idea_id) : null;
+    } catch {
+      ideaId = null;
+    }
+  }
   try {
     await c.env.DB.prepare(
       `INSERT INTO blueprints (id, idea_id, title, concept, viral_score, duration_sec, language, platform, data_json, status, created_at, updated_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(
       id,
-      body.idea_id ? String(body.idea_id) : null,
+      ideaId,
       blueprint.titles?.[0] || blueprint.concept.slice(0, 120),
       blueprint.concept,
       blueprint.viral_score,
@@ -54574,16 +56748,133 @@ app.post("/api/media/image", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const prompt = String(body.prompt || "").trim();
   if (!prompt) return c.json(bad("Prompt tr\u1ED1ng"), 400);
+  const provider = String(body.provider || "auto").toLowerCase();
   try {
-    const { bytes: bytes2, contentType } = await generateImageBytes(prompt, {
-      model: String(body.model || "flux"),
-      width: Number(body.width) || 768,
-      height: Number(body.height) || 1344,
-      seed: body.seed !== void 0 ? Number(body.seed) : void 0
-    });
-    const ext = contentType.includes("png") ? "png" : "jpg";
+    let bytes2;
+    let contentType;
+    let fallback = false;
+    let usedProvider;
+    if (provider === "kira") {
+      if (!hasKira(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY", 503), 503);
+      try {
+        const kira = await generateKiraImage(c.env, prompt, {
+          model: String(body.kira_model || body.model || ""),
+          width: Number(body.width) || 768,
+          height: Number(body.height) || 1344
+        });
+        bytes2 = kira.bytes;
+        contentType = kira.contentType;
+        usedProvider = "kira";
+      } catch (e) {
+        return c.json(bad(`Kira Image th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 300)}`, 502), 502);
+      }
+    } else if (provider === "gemini") {
+      if (!hasGemini(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh GEMINI_API_KEY", 503), 503);
+      const gem = await generateGeminiImage(c.env, prompt, {
+        model: String(body.gemini_model || ""),
+        aspectRatio: "9:16"
+      });
+      bytes2 = gem.bytes;
+      contentType = gem.contentType;
+      usedProvider = "gemini";
+    } else if (provider === "pollinations") {
+      const pol = await generateImageBytes(prompt, {
+        model: String(body.model || "flux"),
+        width: Number(body.width) || 768,
+        height: Number(body.height) || 1344,
+        seed: body.seed !== void 0 ? Number(body.seed) : void 0
+      });
+      bytes2 = pol.bytes;
+      contentType = pol.contentType;
+      fallback = Boolean(pol.fallback);
+      usedProvider = pol.fallback ? "placeholder" : "pollinations";
+    } else {
+      if (hasGemini(c.env)) {
+        try {
+          const gem = await generateGeminiImage(c.env, prompt, {
+            model: String(body.gemini_model || ""),
+            aspectRatio: "9:16"
+          });
+          bytes2 = gem.bytes;
+          contentType = gem.contentType;
+          usedProvider = "gemini";
+        } catch (e) {
+          console.error("gemini image failed, try kira:", String(e?.message || e).slice(0, 200));
+          if (hasKira(c.env)) {
+            try {
+              const kira = await generateKiraImage(c.env, prompt, {
+                model: String(body.kira_model || ""),
+                width: Number(body.width) || 768,
+                height: Number(body.height) || 1344
+              });
+              bytes2 = kira.bytes;
+              contentType = kira.contentType;
+              usedProvider = "kira";
+            } catch (e2) {
+              console.error("kira image failed, fallback to pollinations:", String(e2?.message || e2).slice(0, 200));
+              const pol = await generateImageBytes(prompt, {
+                model: String(body.model || "flux"),
+                width: Number(body.width) || 768,
+                height: Number(body.height) || 1344,
+                seed: body.seed !== void 0 ? Number(body.seed) : void 0
+              });
+              bytes2 = pol.bytes;
+              contentType = pol.contentType;
+              fallback = Boolean(pol.fallback);
+              usedProvider = pol.fallback ? "placeholder" : "pollinations";
+            }
+          } else {
+            const pol = await generateImageBytes(prompt, {
+              model: String(body.model || "flux"),
+              width: Number(body.width) || 768,
+              height: Number(body.height) || 1344,
+              seed: body.seed !== void 0 ? Number(body.seed) : void 0
+            });
+            bytes2 = pol.bytes;
+            contentType = pol.contentType;
+            fallback = Boolean(pol.fallback);
+            usedProvider = pol.fallback ? "placeholder" : "pollinations";
+          }
+        }
+      } else if (hasKira(c.env)) {
+        try {
+          const kira = await generateKiraImage(c.env, prompt, {
+            model: String(body.kira_model || ""),
+            width: Number(body.width) || 768,
+            height: Number(body.height) || 1344
+          });
+          bytes2 = kira.bytes;
+          contentType = kira.contentType;
+          usedProvider = "kira";
+        } catch (e) {
+          console.error("kira image failed, fallback to pollinations:", String(e?.message || e).slice(0, 200));
+          const pol = await generateImageBytes(prompt, {
+            model: String(body.model || "flux"),
+            width: Number(body.width) || 768,
+            height: Number(body.height) || 1344,
+            seed: body.seed !== void 0 ? Number(body.seed) : void 0
+          });
+          bytes2 = pol.bytes;
+          contentType = pol.contentType;
+          fallback = Boolean(pol.fallback);
+          usedProvider = pol.fallback ? "placeholder" : "pollinations";
+        }
+      } else {
+        const pol = await generateImageBytes(prompt, {
+          model: String(body.model || "flux"),
+          width: Number(body.width) || 768,
+          height: Number(body.height) || 1344,
+          seed: body.seed !== void 0 ? Number(body.seed) : void 0
+        });
+        bytes2 = pol.bytes;
+        contentType = pol.contentType;
+        fallback = Boolean(pol.fallback);
+        usedProvider = pol.fallback ? "placeholder" : "pollinations";
+      }
+    }
+    const ext = contentType.includes("png") ? "png" : contentType.includes("svg") ? "svg" : "jpg";
     const key = `images/${uid("img_")}.${ext}`;
-    const saved = await putAsset(c.env, key, bytes2, contentType);
+    const saved = await putAssetSmart(c.env, key, bytes2, contentType);
     const assetId = uid("as_");
     if (body.blueprint_id) {
       try {
@@ -54605,9 +56896,97 @@ app.post("/api/media/image", async (c) => {
         console.error("save image asset failed", e);
       }
     }
-    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType });
+    return c.json({
+      id: assetId,
+      url: saved.url,
+      key,
+      size: saved.size,
+      content_type: contentType,
+      fallback: Boolean(fallback),
+      provider: usedProvider
+    });
   } catch (e) {
     return c.json(bad(`T\u1EA1o \u1EA3nh th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 200)}`, 502), 502);
+  }
+});
+app.post("/api/media/import-image", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const m2 = /^data:(image\/(?:png|jpe?g|webp));base64,([A-Za-z0-9+/=\r\n]+)$/.exec(String(body.data || ""));
+  if (!m2) return c.json(bad("C\u1EA7n data URL \u1EA3nh h\u1EE3p l\u1EC7 (png/jpg/webp)"), 400);
+  const contentType = m2[1] === "image/jpg" ? "image/jpeg" : m2[1];
+  let bytes2;
+  try {
+    const bin = atob(m2[2].replace(/\s+/g, ""));
+    bytes2 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes2[i] = bin.charCodeAt(i);
+  } catch {
+    return c.json(bad("Data URL kh\xF4ng h\u1EE3p l\u1EC7 (base64 l\u1ED7i)"), 400);
+  }
+  if (bytes2.byteLength < 1024) return c.json(bad("\u1EA2nh qu\xE1 nh\u1ECF ho\u1EB7c kh\xF4ng h\u1EE3p l\u1EC7"), 400);
+  if (bytes2.byteLength > 3 * 1024 * 1024) return c.json(bad("\u1EA2nh v\u01B0\u1EE3t qu\xE1 3MB"), 413);
+  try {
+    const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+    const key = `images/${uid("img_")}.${ext}`;
+    const saved = await putAssetSmart(c.env, key, bytes2, contentType);
+    const assetId = uid("as_");
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        ).bind(
+          assetId,
+          String(body.blueprint_id),
+          "image",
+          Number(body.shot_index) || 0,
+          saved.key,
+          contentType,
+          saved.size,
+          String(body.prompt || "imported").slice(0, 800),
+          now()
+        ).run();
+      } catch (e) {
+        console.error("save imported asset failed", e);
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType, provider: "import" });
+  } catch (e) {
+    return c.json(bad(`Import \u1EA3nh th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 200)}`, 502), 502);
+  }
+});
+app.post("/api/media/import-audio", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const m2 = /^data:(audio\/(?:mpeg|mp3|wav|x-wav|wave|ogg|m4a|mp4|aac));base64,([A-Za-z0-9+/=\r\n]+)$/.exec(String(body.data || ""));
+  if (!m2) return c.json(bad("C\u1EA7n data URL audio h\u1EE3p l\u1EC7 (mp3/wav/ogg/m4a)"), 400);
+  const contentType = m2[1].replace("audio/mp3", "audio/mpeg").replace("audio/x-wav", "audio/wav").replace("audio/wave", "audio/wav").replace("audio/mp4", "audio/m4a");
+  let bytes2;
+  try {
+    const bin = atob(m2[2].replace(/\s+/g, ""));
+    bytes2 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes2[i] = bin.charCodeAt(i);
+  } catch {
+    return c.json(bad("Data URL kh\xF4ng h\u1EE3p l\u1EC7 (base64 l\u1ED7i)"), 400);
+  }
+  if (bytes2.byteLength < 512) return c.json(bad("Audio qu\xE1 nh\u1ECF ho\u1EB7c kh\xF4ng h\u1EE3p l\u1EC7"), 400);
+  if (bytes2.byteLength > 3 * 1024 * 1024) return c.json(bad("Audio v\u01B0\u1EE3t qu\xE1 3MB"), 413);
+  try {
+    const ext = contentType.includes("wav") ? "wav" : contentType.includes("ogg") ? "ogg" : contentType.includes("aac") || contentType.includes("m4a") ? "m4a" : "mp3";
+    const key = `audio/${uid("aud_")}.${ext}`;
+    const saved = await putAssetSmart(c.env, key, bytes2, contentType);
+    const assetId = uid("as_");
+    if (body.blueprint_id) {
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        ).bind(assetId, String(body.blueprint_id), "audio", 0, saved.key, contentType, saved.size, "imported voice-over", now()).run();
+      } catch (e) {
+        console.error("save imported audio failed", e);
+      }
+    }
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: contentType, provider: "import" });
+  } catch (e) {
+    return c.json(bad(`Import audio th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 200)}`, 502), 502);
   }
 });
 app.post("/api/media/speech", async (c) => {
@@ -54615,10 +56994,71 @@ app.post("/api/media/speech", async (c) => {
   const text = String(body.text || "").trim();
   if (!text) return c.json(bad("N\u1ED9i dung \u0111\u1ECDc tr\u1ED1ng"), 400);
   if (text.length > 12e3) return c.json(bad("K\u1ECBch b\u1EA3n qu\xE1 d\xE0i (t\u1ED1i \u0111a 12.000 k\xFD t\u1EF1)"), 400);
+  const provider = String(body.provider || "auto").toLowerCase();
   try {
-    const { bytes: bytes2, chunks, chars } = await generateSpeech(text, String(body.voice || "vi"));
-    const key = `audio/${uid("tts_")}.mp3`;
-    const saved = await putAsset(c.env, key, bytes2, "audio/mpeg");
+    let bytes2;
+    let audioType;
+    let chunks;
+    let chars;
+    let fallback = false;
+    let missing = 0;
+    let usedProvider = "google";
+    if (provider === "kira") {
+      if (!hasKira(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh KIRA_API_KEY", 503), 503);
+      const kira = await generateKiraSpeech(c.env, text, {
+        voice: String(body.voice || body.kira_voice || ""),
+        model: String(body.kira_model || "")
+      });
+      bytes2 = kira.bytes;
+      audioType = kira.contentType;
+      chunks = 1;
+      chars = text.length;
+      usedProvider = "kira";
+    } else if (provider === "google" || provider === "gtts") {
+      const res = await generateSpeech(text, String(body.voice || "vi"));
+      bytes2 = res.bytes;
+      audioType = res.fallback ? "audio/wav" : "audio/mpeg";
+      chunks = res.chunks;
+      chars = res.chars;
+      fallback = Boolean(res.fallback);
+      missing = res.missing || 0;
+      usedProvider = "google";
+    } else {
+      if (hasKira(c.env)) {
+        try {
+          const kira = await generateKiraSpeech(c.env, text, {
+            voice: String(body.voice || body.kira_voice || ""),
+            model: String(body.kira_model || "")
+          });
+          bytes2 = kira.bytes;
+          audioType = kira.contentType;
+          chunks = 1;
+          chars = text.length;
+          usedProvider = "kira";
+        } catch (e) {
+          console.error("kira speech failed, fallback to google:", String(e?.message || e).slice(0, 200));
+          const res = await generateSpeech(text, String(body.voice || "vi"));
+          bytes2 = res.bytes;
+          audioType = res.fallback ? "audio/wav" : "audio/mpeg";
+          chunks = res.chunks;
+          chars = res.chars;
+          fallback = Boolean(res.fallback);
+          missing = res.missing || 0;
+          usedProvider = "google";
+        }
+      } else {
+        const res = await generateSpeech(text, String(body.voice || "vi"));
+        bytes2 = res.bytes;
+        audioType = res.fallback ? "audio/wav" : "audio/mpeg";
+        chunks = res.chunks;
+        chars = res.chars;
+        fallback = Boolean(res.fallback);
+        missing = res.missing || 0;
+        usedProvider = "google";
+      }
+    }
+    const key = `audio/${uid("tts_")}.${audioType.includes("wav") ? "wav" : "mp3"}`;
+    const saved = await putAssetSmart(c.env, key, bytes2, audioType);
     const assetId = uid("as_");
     if (body.blueprint_id) {
       try {
@@ -54631,17 +57071,17 @@ app.post("/api/media/speech", async (c) => {
           "audio",
           Number(body.shot_index) || 0,
           saved.key,
-          "audio/mpeg",
+          audioType,
           saved.size,
           text.slice(0, 500),
-          JSON.stringify({ voice: body.voice || "vi", chunks, chars }),
+          JSON.stringify({ voice: body.voice || "vi", chunks, chars, fallback: Boolean(fallback), missing: missing || 0 }),
           now()
         ).run();
       } catch (e) {
         console.error("save audio asset failed", e);
       }
     }
-    return c.json({ id: assetId, url: saved.url, key, size: saved.size, chunks, chars });
+    return c.json({ id: assetId, url: saved.url, key, size: saved.size, chunks, chars, fallback: Boolean(fallback), missing: missing || 0, provider: usedProvider });
   } catch (e) {
     return c.json(bad(`T\u1EA1o gi\u1ECDng \u0111\u1ECDc th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 200)}`, 502), 502);
   }
@@ -54652,7 +57092,9 @@ app.post("/api/media/video/:blueprintId", async (c) => {
   const url = String(body.url || "");
   const contentType = String(body.content_type || "video/mp4");
   const size = Math.max(0, Number(body.size) || 0);
-  if (!/^https:\/\/[^/]+\.public\.blob\.vercel-storage\.com\//.test(url)) {
+  const isBlobUrl = /^https:\/\/.*\.blob\.vercel-storage\.com\//.test(url);
+  const isPathname = /^(videos|audio|images|segments)\//.test(url);
+  if (!isBlobUrl && !isPathname) {
     return c.json(bad("URL Vercel Blob kh\xF4ng h\u1EE3p l\u1EC7"), 400);
   }
   if (size && size > 120 * 1024 * 1024) return c.json(bad("Video qu\xE1 l\u1EDBn (t\u1ED1i \u0111a 120MB)"), 400);
@@ -54667,6 +57109,65 @@ app.post("/api/media/video/:blueprintId", async (c) => {
     console.error("save video asset failed", e);
   }
   return c.json({ id: assetId, url, key: url, size });
+});
+app.post("/api/media/ai-video", async (c) => {
+  if (!hasGemini(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh GEMINI_API_KEY (AI Studio)"), 503);
+  const body = await c.req.json().catch(() => ({}));
+  let prompt = String(body.prompt || "").trim();
+  if (prompt.length < 8) return c.json(bad("Prompt video qu\xE1 ng\u1EAFn (t\u1ED1i thi\u1EC3u 8 k\xFD t\u1EF1)"), 400);
+  const voRaw = String(body.voiceover || "").replace(/\s+/g, " ").replace(/["“”]/g, "'").trim();
+  let spoken = false;
+  if (voRaw) {
+    let vo = voRaw.slice(0, 260);
+    const cut = vo.lastIndexOf(" ");
+    if (voRaw.length > 260 && cut > 120) vo = vo.slice(0, cut);
+    if (vo.length >= 8) {
+      prompt += ` Audio: a warm, natural Vietnamese narrator says exactly: "${vo}". Clear storytelling pace; subtle ambient sound matching the visuals; the voice is louder than any music; no subtitles or on-screen captions.`;
+      spoken = true;
+    }
+  }
+  if (prompt.length > 1400) prompt = prompt.slice(0, 1400);
+  try {
+    const operation = await startVeoOperation(c.env, prompt, {
+      model: String(body.model || ""),
+      aspectRatio: String(body.aspect_ratio || "9:16")
+    });
+    return c.json({ operation, model: VEO_MODELS.includes(body.model) ? body.model : VEO_MODELS[0], spoken });
+  } catch (e) {
+    return c.json(bad(`Kh\xF4ng kh\u1EDFi \u0111\u1ED9ng \u0111\u01B0\u1EE3c Veo: ${String(e?.message || e).slice(0, 300)}`, 502), 502);
+  }
+});
+app.get("/api/media/ai-video/status", async (c) => {
+  if (!hasGemini(c.env)) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh GEMINI_API_KEY (AI Studio)"), 503);
+  const name = String(c.req.query("name") || "");
+  const blueprintId = String(c.req.query("blueprint_id") || "");
+  try {
+    const status = await getVeoOperationStatus(c.env, name);
+    if (!status.done) return c.json({ done: false });
+    if ("error" in status && status.error) return c.json({ done: true, error: status.error });
+    const uri = status.videoUri;
+    if (c.env.BLOB_READ_WRITE_TOKEN) {
+      const bytes2 = await downloadVeoVideo(c.env, uri);
+      const key = `videos/veo_${uid("v_")}.mp4`;
+      const saved = await putAsset(c.env, key, bytes2, "video/mp4");
+      const assetId = uid("as_");
+      if (blueprintId) {
+        try {
+          await c.env.DB.prepare(
+            `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?)`
+          ).bind(assetId, blueprintId, "video", 0, saved.key, "video/mp4", saved.size, `veo:${name}`.slice(0, 500), now()).run();
+          await c.env.DB.prepare(`UPDATE blueprints SET status = 'rendered', updated_at = ? WHERE id = ?`).bind(now(), blueprintId).run();
+        } catch (e) {
+          console.error("save veo asset failed", e);
+        }
+      }
+      return c.json({ done: true, id: assetId, url: saved.url, key, size: saved.size, provider: "veo" });
+    }
+    return c.json({ done: true, url: uri, provider: "veo", note: "URI Google t\u1EA1m th\u1EDFi \u2014 h\xE3y t\u1EA3i v\u1EC1 s\u1EDBm", expires_source: true });
+  } catch (e) {
+    return c.json(bad(`Ki\u1EC3m tra tr\u1EA1ng th\xE1i Veo th\u1EA5t b\u1EA1i: ${String(e?.message || e).slice(0, 300)}`, 502), 502);
+  }
 });
 app.post("/api/blob/upload", async (c) => {
   if (!c.env.BLOB_READ_WRITE_TOKEN) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh Vercel Blob"), 503);
@@ -54695,7 +57196,90 @@ app.post("/api/blob/upload", async (c) => {
   }
 });
 app.get("/api/media/*", async (c) => {
-  return c.json(bad("Media m\u1EDBi \u0111\u01B0\u1EE3c ph\u1EE5c v\u1EE5 tr\u1EF1c ti\u1EBFp qua Vercel Blob URL"), 404);
+  const rawPath = c.req.path.replace(/^\/api\/media\//, "");
+  if (!rawPath) return c.json(bad("Thi\u1EBFu key"), 400);
+  let key;
+  try {
+    key = decodeURIComponent(rawPath);
+  } catch {
+    key = rawPath;
+  }
+  if (!key) return c.json(bad("Thi\u1EBFu key"), 400);
+  if (key.startsWith("data:")) {
+    return c.json(bad("Data URL kh\xF4ng th\u1EC3 proxy"), 400);
+  }
+  if (/^https:\/\//i.test(key)) {
+    try {
+      const direct = await fetch(key);
+      if (direct.ok) {
+        const ct2 = direct.headers.get("content-type") || "application/octet-stream";
+        const buf = await direct.arrayBuffer();
+        return new Response(buf, {
+          headers: {
+            "Content-Type": ct2,
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "Content-Length": String(buf.byteLength)
+          }
+        });
+      }
+    } catch {
+    }
+    if (c.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const { head: head2 } = await Promise.resolve().then(() => (init_dist(), dist_exports));
+        const urlObj = new URL(key);
+        const pathname = urlObj.pathname.replace(/^\//, "");
+        if (pathname) {
+          const meta = await head2(pathname, { token: c.env.BLOB_READ_WRITE_TOKEN });
+          const dl = meta?.downloadUrl || meta?.url;
+          if (dl) {
+            const res = await fetch(dl);
+            if (res.ok) {
+              const ct2 = res.headers.get("content-type") || meta.contentType || "application/octet-stream";
+              const buf = await res.arrayBuffer();
+              return new Response(buf, {
+                headers: {
+                  "Content-Type": ct2,
+                  "Cache-Control": "public, max-age=31536000, immutable",
+                  "Content-Length": String(buf.byteLength)
+                }
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("blob proxy head fallback failed", String(e?.message || e).slice(0, 200));
+      }
+    }
+    return c.json(bad("Kh\xF4ng t\u1EA3i \u0111\u01B0\u1EE3c media"), 404);
+  }
+  if (!c.env.BLOB_READ_WRITE_TOKEN) {
+    return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh BLOB_READ_WRITE_TOKEN"), 503);
+  }
+  try {
+    const { head: head2 } = await Promise.resolve().then(() => (init_dist(), dist_exports));
+    const meta = await head2(key, { token: c.env.BLOB_READ_WRITE_TOKEN });
+    const downloadUrl = meta?.downloadUrl || meta?.url;
+    if (!downloadUrl) return c.json(bad("Media kh\xF4ng t\u1ED3n t\u1EA1i"), 404);
+    const res = await fetch(downloadUrl);
+    if (!res.ok) return c.json(bad("Kh\xF4ng t\u1EA3i \u0111\u01B0\u1EE3c media"), 404);
+    const ct2 = res.headers.get("content-type") || meta.contentType || "application/octet-stream";
+    const buf = await res.arrayBuffer();
+    return new Response(buf, {
+      headers: {
+        "Content-Type": ct2,
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Length": String(buf.byteLength)
+      }
+    });
+  } catch (e) {
+    const msg = String(e?.message || "");
+    if (msg.toLowerCase().includes("not found") || msg.includes("404")) {
+      return c.json(bad("Media kh\xF4ng t\u1ED3n t\u1EA1i"), 404);
+    }
+    console.error("blob proxy error", msg.slice(0, 300));
+    return c.json(bad("L\u1ED7i proxy media"), 500);
+  }
 });
 app.post("/api/distribution/build", async (c) => {
   const body = await c.req.json().catch(() => ({}));
@@ -54806,25 +57390,25 @@ app.post("/api/metrics", async (c) => {
 });
 app.get("/api/metrics/summary", async (c) => {
   const totals = await c.env.DB.prepare(
-    `SELECT COUNT(*) AS entries,
-            COALESCE(SUM(views),0) AS views,
-            COALESCE(SUM(likes),0) AS likes,
-            COALESCE(SUM(comments),0) AS comments,
-            COALESCE(SUM(shares),0) AS shares,
-            COALESCE(SUM(followers_gained),0) AS followers,
-            COALESCE(SUM(revenue_usd),0) AS revenue
+    `SELECT COUNT(*)::int AS entries,
+            COALESCE(SUM(views),0)::float8 AS views,
+            COALESCE(SUM(likes),0)::float8 AS likes,
+            COALESCE(SUM(comments),0)::float8 AS comments,
+            COALESCE(SUM(shares),0)::float8 AS shares,
+            COALESCE(SUM(followers_gained),0)::float8 AS followers,
+            COALESCE(SUM(revenue_usd),0)::float8 AS revenue
      FROM metrics`
   ).first();
   const { results: byPlatform } = await c.env.DB.prepare(
     `SELECT platform,
-            COALESCE(SUM(views),0) AS views,
-            COALESCE(SUM(revenue_usd),0) AS revenue,
-            COALESCE(SUM(followers_gained),0) AS followers,
-            COUNT(*) AS posts
+            COALESCE(SUM(views),0)::float8 AS views,
+            COALESCE(SUM(revenue_usd),0)::float8 AS revenue,
+            COALESCE(SUM(followers_gained),0)::float8 AS followers,
+            COUNT(*)::int AS posts
      FROM metrics GROUP BY platform ORDER BY revenue DESC`
   ).all();
   const { results: bySource } = await c.env.DB.prepare(
-    `SELECT revenue_source, COALESCE(SUM(revenue_usd),0) AS revenue
+    `SELECT revenue_source, COALESCE(SUM(revenue_usd),0)::float8 AS revenue
      FROM metrics GROUP BY revenue_source ORDER BY revenue DESC`
   ).all();
   const { results: recent } = await c.env.DB.prepare(
@@ -54832,9 +57416,9 @@ app.get("/api/metrics/summary", async (c) => {
      FROM metrics ORDER BY recorded_at DESC LIMIT 15`
   ).all();
   const counts = await c.env.DB.prepare(
-    `SELECT (SELECT COUNT(*) FROM blueprints) AS blueprints,
-            (SELECT COUNT(*) FROM assets WHERE kind='video') AS videos,
-            (SELECT COUNT(*) FROM distributions) AS packs`
+    `SELECT (SELECT COUNT(*) FROM blueprints)::int AS blueprints,
+            (SELECT COUNT(*) FROM assets WHERE kind='video')::int AS videos,
+            (SELECT COUNT(*) FROM distributions)::int AS packs`
   ).first();
   const views = Number(totals?.views || 0);
   const revenue = Number(totals?.revenue || 0);
@@ -55098,61 +57682,97 @@ function createBindings(environment) {
   const databaseUrl = environment.DATABASE_URL || environment.POSTGRES_URL || environment.NEON_DATABASE_URL;
   return {
     DB: createDatabase(databaseUrl),
+    DATABASE_URL: databaseUrl,
     BLOB_READ_WRITE_TOKEN: environment.BLOB_READ_WRITE_TOKEN,
     OPENAI_API_KEY: environment.OPENAI_API_KEY,
-    OPENAI_BASE_URL: environment.OPENAI_BASE_URL
+    OPENAI_BASE_URL: environment.OPENAI_BASE_URL,
+    GEMINI_API_KEY: environment.GEMINI_API_KEY || environment.GOOGLE_API_KEY,
+    EXPLABS_API_KEY: environment.EXPLABS_API_KEY,
+    EXPLABS_BASE_URL: environment.EXPLABS_BASE_URL,
+    EXPLABS_MODEL: environment.EXPLABS_MODEL,
+    KIRA_API_KEY: environment.KIRA_API_KEY,
+    KIRA_BASE_URL: environment.KIRA_BASE_URL,
+    KIRA_MODEL: environment.KIRA_MODEL
   };
 }
 var src_default = app;
 
 // server/vercel-entry.ts
 var runtimeEnv = globalThis.process?.env || {};
-async function readBody(request) {
-  if (request.method === "GET" || request.method === "HEAD") return void 0;
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of request) {
-    chunks.push(chunk);
-    size += chunk.byteLength;
-  }
-  if (!size) return void 0;
-  const body = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return body;
-}
-async function toWebRequest(request) {
-  const headers = new Headers();
-  for (const [name, value] of Object.entries(request.headers)) {
-    if (value !== void 0) headers.set(name, Array.isArray(value) ? value.join(", ") : value);
-  }
-  const protocol = headers.get("x-forwarded-proto") || "https";
-  const host = headers.get("x-forwarded-host") || headers.get("host") || "localhost";
-  const rawBody = await readBody(request);
-  const body = rawBody ? new Uint8Array(rawBody) : void 0;
-  return new Request(new URL(request.url || "/", `${protocol}://${host}`), {
-    method: request.method || "GET",
-    headers,
-    body
-  });
-}
 function restorePagePath(request) {
   const url = new URL(request.url);
   const pagePath = url.searchParams.get("__hono_path");
-  url.searchParams.delete("[...path]");
-  if (!pagePath) return new Request(url, request);
+  if (!pagePath) return request;
   url.pathname = pagePath;
   url.searchParams.delete("__hono_path");
   return new Request(url, request);
 }
-async function handler(request, response) {
-  const result = await src_default.fetch(restorePagePath(await toWebRequest(request)), createBindings(runtimeEnv));
-  response.statusCode = result.status;
-  result.headers.forEach((value, name) => response.setHeader(name, value));
-  response.end(result.body ? new Uint8Array(await result.arrayBuffer()) : void 0);
+async function run(request) {
+  return src_default.fetch(restorePagePath(request), createBindings(runtimeEnv));
+}
+function errorMessage(err) {
+  return String(err?.message || err).slice(0, 300);
+}
+function toU8(chunk) {
+  if (chunk instanceof Uint8Array) return chunk;
+  return new TextEncoder().encode(String(chunk));
+}
+function concatU8(parts) {
+  const total = parts.reduce((s, p2) => s + p2.byteLength, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p2 of parts) {
+    out.set(p2, off);
+    off += p2.byteLength;
+  }
+  return out;
+}
+async function handler(req, res) {
+  const nodeRes = res;
+  const nodeReq = req;
+  if (nodeRes && typeof nodeRes.setHeader === "function" && typeof nodeReq?.url === "string" && nodeReq.url.startsWith("/")) {
+    try {
+      const method = String(nodeReq.method || "GET").toUpperCase();
+      const parts = [];
+      if (method !== "GET" && method !== "HEAD" && typeof nodeReq[Symbol.asyncIterator] === "function") {
+        for await (const chunk of nodeReq) parts.push(toU8(chunk));
+      }
+      const hdrs = new Headers();
+      for (const [k, v2] of Object.entries(nodeReq.headers || {})) {
+        if (Array.isArray(v2)) v2.forEach((x2) => hdrs.append(k, String(x2)));
+        else if (v2 !== void 0) hdrs.set(k, String(v2));
+      }
+      const proto = String((nodeReq.headers || {})["x-forwarded-proto"] || "https");
+      const host = String((nodeReq.headers || {}).host || "localhost");
+      const request = new Request(`${proto}://${host}${nodeReq.url}`, {
+        method,
+        headers: hdrs,
+        body: parts.length ? concatU8(parts) : void 0
+      });
+      const response = await run(request);
+      const body = new Uint8Array(await response.arrayBuffer());
+      nodeRes.statusCode = response.status;
+      response.headers.forEach((v2, k) => {
+        const lk = k.toLowerCase();
+        if (lk !== "content-encoding" && lk !== "transfer-encoding") nodeRes.setHeader(k, v2);
+      });
+      nodeRes.end(body);
+      return void 0;
+    } catch (err) {
+      nodeRes.statusCode = 500;
+      nodeRes.setHeader("content-type", "application/json; charset=utf-8");
+      nodeRes.end(JSON.stringify({ error: `L\u1ED7i kh\u1EDFi t\u1EA1o function: ${errorMessage(err)}` }));
+      return void 0;
+    }
+  }
+  try {
+    return await run(req);
+  } catch (err) {
+    return new Response(JSON.stringify({ error: `L\u1ED7i kh\u1EDFi t\u1EA1o function: ${errorMessage(err)}` }), {
+      status: 500,
+      headers: { "content-type": "application/json; charset=utf-8" }
+    });
+  }
 }
 /*! Bundled license information:
 

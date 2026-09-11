@@ -10,6 +10,7 @@ export function renderStudio(): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Faceless Studio — STT · Dịch SRT · Dub · Băm · RAG (WebAssembly)</title>
 <meta name="description" content="5 công cụ media chạy hoàn toàn bằng WebAssembly trong trình duyệt: nhận diện giọng nói, dịch phụ đề, thuyết minh lại video, băm video, hỏi đáp tài liệu." />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet" />

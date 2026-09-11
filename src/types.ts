@@ -5,6 +5,14 @@ export type Bindings = {
   BLOB_READ_WRITE_TOKEN?: string
   OPENAI_API_KEY?: string
   OPENAI_BASE_URL?: string
+  GEMINI_API_KEY?: string
+  EXPLABS_API_KEY?: string
+  EXPLABS_BASE_URL?: string
+  EXPLABS_MODEL?: string
+  KIRA_API_KEY?: string
+  KIRA_BASE_URL?: string
+  KIRA_MODEL?: string
+  DATABASE_URL?: string
 }
 
 export type Shot = {

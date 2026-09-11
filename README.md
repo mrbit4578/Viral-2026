@@ -94,10 +94,26 @@ Trong project Vercel:
 DATABASE_URL=postgresql://...                 # URL Neon, có SSL
 BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
 
+# Phương án 2 (không bắt buộc): ảnh bằng Gemini native image + video bằng Veo
+# Key AI Studio định dạng mới "AQ.Ab..." — chỉ hoạt động với native endpoint,
+# app đã xử lý đúng (header x-goog-api-key), không nhét vào OPENAI_API_KEY được.
+GEMINI_API_KEY=AQ.Ab...
+
 # Không bắt buộc: thiếu key app vẫn dùng fallback cục bộ
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://www.genspark.ai/api/llm_proxy/v1
 ```
+
+#### Phương án 2 — Gemini/Veo khi có `GEMINI_API_KEY`
+
+| Nút | Hành vi khi có key | Khi không có key |
+|---|---|---|
+| Bước 04 · Ảnh | Thêm chọn nguồn: Tự động (Gemini → Pollinations), chỉ Gemini, chỉ Pollinations | Chỉ Pollinations (offline → SVG placeholder) |
+| Bước 06 · Video AI | Nút "Tạo video bằng Veo AI" (video thật 9:16 có audio, ~1–3 phút mỗi video, client poll operation). Tick sẵn **"Voice đọc theo Veo"** để Veo tự tạo tiếng Việt đọc đoạn mở đầu kịch bản trong video (bỏ qua được bước 05) | Ẩn — chỉ có render Canvas trong browser |
+
+Ngoài ra có route `POST /api/media/import-image` (ảnh png/jpg/webp) và `POST /api/media/import-audio` (voice mp3/wav/ogg/m4a) nhận **data URL có sẵn** ≤ 3MB để đưa media tạo ở nơi khác vào đúng gallery/audio player — UI có sẵn hai nút "Tải ảnh lên" / "Tải voice có sẵn", dùng được cả khi dịch vụ AI ngoại tuyến.
+
+Lưu ý: Veo và ảnh chất lượng cao có thể cần **Billing** trên Google Cloud project của key; khi hết quota server trả lỗi rõ (429) và ảnh tự rơi về Pollinations khi đang ở chế độ "Tự động". Video Veo khi chưa có Blob sẽ trả về **URI Google tạm thởi** — hãy tải về sớm.
 
 ### 2. Tạo schema Neon
 
@@ -127,6 +143,20 @@ npm run dev
 ```
 
 Khởi động xong, mở `http://localhost:3000` hoặc URL Vercel Dev CLI in ra. Không commit `.env.local` hay thư mục `.vercel`.
+
+## Các tối ưu đã áp dụng (bản hiện tại)
+
+- **Studio sửa lỗi dropdown Model AI**: `/api/config` trả `default_text_model` + mảng tên model (string); trạng thái Studio hiện đọc đúng định dạng này (bản cũ đọc `{key, label}` → hiển thị "undefined").
+- **Routing toàn diện**: ngoài `/` và `/studio`, `vercel.json` có rewrite catch-all cho mọi đường dẫn không phải `/api/*` hay file tĩnh → SPA fallback hoạt động khi mở trực tiếp bất kỳ URL nào.
+- **Entry Function cứng hơn**: `api/[[...path]].js` chấp nhận cả 2 dạng export của bundle CJS (tránh 500 khi interop khác kỳ vọng).
+- **Dịch phụ đề nhanh gấp ~3 lần**: các lô 25 dòng chạy song song (giới hạn 3 lô) thay vì tuần tự — tránh vượt 60 giây của Vercel Hobby với SRT dài.
+- **Nạp tài liệu RAG nhanh ~20 lần**: chunk được ghi bằng multi-row INSERT (1 query / 20 chunk) thay vì 1 query/chunk.
+- **Tạo ảnh tin cậy hơn**: server retry khi dịch vụ ảnh flake (đổi seed, kiểm tra content-type); khi dịch vụ ảnh AI hoàn toàn ngoại tuyến, server dựng **ảnh SVG placeholder** có cờ `fallback` để dây chuyền chạy tiếp.
+- **Giọng đọc có fallback**: TTS retry từng chunk (có timeout 15s/chunk), fail-fast sau 3 chunk lỗi liên tiếp; khi TTS chết hẳn, server phát **audio WAV tone** cùng thởi lượng lồng tiếng (cờ `fallback`) thay vì 502 → render video vẫn đúng timing. Chunk nào lỗi lẻ được đếm vào `missing` thay vì làm gãy cả kịch bản.
+- **Không còn gãy luồng khi chưa có Blob**: ảnh/audio server-side được trả dạng data-URL khi thiếu `BLOB_READ_WRITE_TOKEN` (tối đa 3MB để an toàn giới hạn response); video render ở browser rơi về chế độ xem/tải local khi upload Blob không khả dụng.
+- **Số liệu đúng kiểu**: các truy vấn tổng hợp ép `::float8`/`::int` vì Neon trả `SUM`/`COUNT` dạng string.
+- **Tránh bản ghi "ma"**: blueprint chỉ gắn `idea_id` khi idea thực sự tồn tại (tránh lỗi FK âm thầm khiến blueprint không được lưu).
+- **UX liền mạch**: nút "Dùng làm ý tưởng →" trong Studio nạp kịch bản vào ô chủ đề của dây chuyền; xoá blueprint đang mở sẽ reset workspace; đã bổ sung favicon và header cache/bảo mật (`X-Frame-Options`, `nosniff`, cache `/static/*`).
 
 ## Lưu ý vận hành
 
