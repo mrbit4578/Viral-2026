@@ -44,13 +44,19 @@ import {
 import {
   DEFAULT_KIRA_IMAGE_MODEL,
   DEFAULT_KIRA_MODEL,
+  DEFAULT_KIRA_TTS_MODEL,
+  DEFAULT_KIRA_VIDEO_MODEL,
   DEFAULT_KIRA_VOICE,
   KIRA_IMAGE_MODELS,
   KIRA_MODELS,
+  KIRA_TTS_MODELS,
+  KIRA_VIDEO_MODELS,
   KIRA_VOICES,
   askKira,
   generateKiraImage,
   generateKiraSpeech,
+  generateKiraVideoStart,
+  getKiraVideoOperationStatus,
   hasKira,
 } from './lib/kira.js'
 import { renderPage } from './page.js'
@@ -151,8 +157,12 @@ app.get('/api/config', (c) =>
     default_kira_model: DEFAULT_KIRA_MODEL,
     kira_image_models: KIRA_IMAGE_MODELS,
     default_kira_image_model: DEFAULT_KIRA_IMAGE_MODEL,
+    kira_tts_models: KIRA_TTS_MODELS,
+    default_kira_tts_model: DEFAULT_KIRA_TTS_MODEL,
     kira_voices: KIRA_VOICES,
     default_kira_voice: DEFAULT_KIRA_VOICE,
+    kira_video_models: KIRA_VIDEO_MODELS,
+    default_kira_video_model: DEFAULT_KIRA_VIDEO_MODEL,
     gemini: hasGemini(c.env),
     gemini_image_models: GEMINI_IMAGE_MODELS,
     veo_models: VEO_MODELS,
@@ -178,9 +188,13 @@ app.get('/api/kira/models', (c) =>
   c.json({
     models: Object.entries(KIRA_MODELS).map(([k, v]) => ({ id: k, name: v })),
     image_models: KIRA_IMAGE_MODELS,
+    tts_models: KIRA_TTS_MODELS,
+    video_models: KIRA_VIDEO_MODELS,
     voices: KIRA_VOICES,
     default: DEFAULT_KIRA_MODEL,
     default_image: DEFAULT_KIRA_IMAGE_MODEL,
+    default_tts: DEFAULT_KIRA_TTS_MODEL,
+    default_video: DEFAULT_KIRA_VIDEO_MODEL,
     default_voice: DEFAULT_KIRA_VOICE,
     has_key: hasKira(c.env),
   })
@@ -193,9 +207,10 @@ app.post('/api/kira/image', async (c) => {
   if (!prompt) return c.json(bad('Prompt trống'), 400)
   try {
     const img = await generateKiraImage(c.env, prompt, {
-      model: String(body.model || ''),
+      model: String(body.model || body.kira_model || ''),
       width: Number(body.width) || 768,
       height: Number(body.height) || 1344,
+      aspect_ratio: String(body.aspect_ratio || '9:16'),
     })
     const key = `images/kira_${uid('img_')}.png`
     const saved = await putAssetSmart(c.env, key, img.bytes, img.contentType)
@@ -240,6 +255,59 @@ app.post('/api/kira/speech', async (c) => {
     return c.json({ id: assetId, url: saved.url, key, size: saved.size, content_type: aud.contentType, provider: 'kira' })
   } catch (e: any) {
     return c.json(bad(`Kira Speech thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+  }
+})
+
+app.post('/api/kira/video', async (c) => {
+  if (!hasKira(c.env)) return c.json(bad('Chưa cấu hình KIRA_API_KEY', 503), 503)
+  const body = await c.req.json().catch(() => ({}))
+  const prompt = String(body.prompt || '').trim()
+  if (prompt.length < 8) return c.json(bad('Prompt video quá ngắn (tối thiểu 8 ký tự)'), 400)
+  try {
+    const { operationId, model } = await generateKiraVideoStart(c.env, prompt, {
+      model: String(body.model || ''),
+      aspect_ratio: String(body.aspect_ratio || '9:16'),
+      duration_seconds: Number(body.duration_seconds) || 6,
+    })
+    return c.json({ operation: operationId, operationId, model, provider: 'kira' })
+  } catch (e: any) {
+    return c.json(bad(`Kira Video thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+  }
+})
+
+app.get('/api/kira/video/status', async (c) => {
+  if (!hasKira(c.env)) return c.json(bad('Chưa cấu hình KIRA_API_KEY', 503), 503)
+  const id = String(c.req.query('id') || c.req.query('operation') || '')
+  const blueprintId = String(c.req.query('blueprint_id') || '')
+  if (!id) return c.json(bad('Thiếu operation id'), 400)
+  try {
+    const status = await getKiraVideoOperationStatus(c.env, id)
+    if (!status.done) return c.json({ done: false })
+    if ('error' in status) return c.json({ done: true, error: status.error })
+    // save to blob if possible
+    if (c.env.BLOB_READ_WRITE_TOKEN) {
+      const key = `videos/kira_${uid('v_')}.mp4`
+      const saved = await putAsset(c.env, key, status.bytes, status.contentType)
+      const assetId = uid('as_')
+      if (blueprintId) {
+        try {
+          await c.env.DB.prepare(
+            `INSERT INTO assets (id, blueprint_id, kind, shot_index, r2_key, content_type, size, prompt, created_at) VALUES (?,?,?,?,?,?,?,?,?)`
+          )
+            .bind(assetId, blueprintId, 'video', 0, saved.key, status.contentType, saved.size, `kira-video:${id}`.slice(0, 500), now())
+            .run()
+          await c.env.DB.prepare(`UPDATE blueprints SET status = 'rendered', updated_at = ? WHERE id = ?`)
+            .bind(now(), blueprintId)
+            .run()
+        } catch {}
+      }
+      return c.json({ done: true, id: assetId, url: saved.url, key, size: saved.size, provider: 'kira' })
+    }
+    // if no blob, return temporary handling note — client should download from b64? We already have bytes but need to return via data url? For now return note
+    // Convert to base64 data url for immediate preview if needed
+    return c.json({ done: true, provider: 'kira', note: 'Video sẵn sàng nhưng chưa lưu cloud — cần BLOB_READ_WRITE_TOKEN', bytes_length: status.bytes.byteLength })
+  } catch (e: any) {
+    return c.json(bad(`Kira Video status thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
   }
 })
 

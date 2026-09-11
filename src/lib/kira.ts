@@ -1,57 +1,86 @@
 /**
  * Kira AI integration — https://kiraai.vn
  * OpenAI-compatible endpoint: https://kiraai.vn/api/v1
- * Docs: https://kiraai.vn/guide/chatgpt/ , https://kiraai.vn/models/
+ * Docs: https://kiraai.vn/documents/ (official)
  *
- * Hỗ trợ hơn 100+ model qua một key: kira-auto, kira-2.0, deepseek, qwen, gpt, claude...
- * Tích hợp như provider fallback thứ 3 sau primary (Genspark/OpenAI) và Explabs.
+ * Models per official docs:
+ * - Chat: kira-mini-1.0 (free), kira-3.5-pro, kira-3.5-flash, kira-2.5-pro, kira-2.5-flash
+ * - Image: kira-3.0-image (high speed), kira-2.0-image (stable)
+ * - Video: kira-3.0-video, kira-3.0-video-flash
+ * - TTS: kira-3.0-flash-tts (studio Vietnamese), kira-2.0-flash-tts (low latency)
+ * - Voices: Kore, Fenrir, Puck, Charon, Aoede + OpenAI mapping alloy->Kore etc.
  *
- * Media integration: image + speech (TTS) — auto fallback chain Gemini->Kira->Pollinations/Google
+ * Endpoints:
+ * - POST /chat/completions
+ * - POST /images/generations with {model, prompt, aspect_ratio} -> data[0].b64_json
+ * - POST /audio/speech with {model, input, voice} -> binary mp3
+ * - POST /videos/generations -> {id} then GET /videos/operations/:id polling -> done + data[0].b64_json mp4
  */
+
 import type { Bindings } from '../types.js'
 
+// ------------------------------------------------------------------ Chat models (official)
 export const KIRA_MODELS: Record<string, string> = {
-  'kira-auto': 'kira-auto',
-  'kira-2.0': 'kira-2.0',
-  'kira-3.0': 'kira-3.0',
-  'kira-2.5': 'kira-2.5',
-  'deepseek-v4-flash': 'deepseek-v4-flash',
-  'deepseek-v4-flash-free': 'deepseek-v4-flash-free',
-  'qwen3.8-flash': 'qwen3.8-flash',
-  'qwen3-235b': 'qwen3-235b',
-  'gpt-4o-mini': 'gpt-4o-mini',
-  'claude-3.5-sonnet': 'claude-3.5-sonnet',
+  'kira-3.5-pro': 'kira-3.5-pro',
+  'kira-3.5-flash': 'kira-3.5-flash',
+  'kira-2.5-pro': 'kira-2.5-pro',
+  'kira-2.5-flash': 'kira-2.5-flash',
+  'kira-mini-1.0': 'kira-mini-1.0',
+  // aliases for compatibility
+  'kira-auto': 'kira-3.5-flash',
+  'kira-3.0': 'kira-3.5-flash',
+  'kira-2.0': 'kira-2.5-flash',
+  'kira-2.5': 'kira-2.5-flash',
+  'kira-3.0-pro': 'kira-3.5-pro',
 }
 
-export const DEFAULT_KIRA_MODEL = 'kira-auto'
+export const DEFAULT_KIRA_MODEL = 'kira-3.5-flash'
 
-// --- Media models ---
-export const KIRA_IMAGE_MODELS = [
-  'kira-image-1',
-  'kira-image-pro',
-  'kira-flux',
-  'flux',
-  'dall-e-3',
-  'dall-e-2',
-  'kira-dalle',
-]
+// ------------------------------------------------------------------ Image models (official)
+export const KIRA_IMAGE_MODELS = ['kira-3.0-image', 'kira-2.0-image'] as const
+export const DEFAULT_KIRA_IMAGE_MODEL = 'kira-3.0-image'
+export const KIRA_IMAGE_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const
 
-export const DEFAULT_KIRA_IMAGE_MODEL = 'kira-image-1'
+// ------------------------------------------------------------------ TTS models (official)
+export const KIRA_TTS_MODELS = ['kira-3.0-flash-tts', 'kira-2.0-flash-tts'] as const
+export const DEFAULT_KIRA_TTS_MODEL = 'kira-3.0-flash-tts'
 
+// Voices official + OpenAI mapping
 export const KIRA_VOICES = [
-  'kira-female-1',
-  'kira-female-2',
-  'kira-male-1',
-  'kira-male-2',
-  'alloy',
-  'nova',
-  'shimmer',
-  'echo',
-  'fable',
-  'onyx',
-]
+  'Kore',
+  'Fenrir',
+  'Puck',
+  'Charon',
+  'Aoede',
+  // OpenAI compatible aliases
+  'alloy', // -> Kore
+  'echo', // -> Fenrir
+  'fable', // -> Puck
+  'onyx', // -> Charon
+  'nova', // -> Aoede
+] as const
 
-export const DEFAULT_KIRA_VOICE = 'kira-female-1'
+export const KIRA_VOICE_MAP: Record<string, string> = {
+  alloy: 'Kore',
+  echo: 'Fenrir',
+  fable: 'Puck',
+  onyx: 'Charon',
+  nova: 'Aoede',
+  // allow lowercase input
+  kore: 'Kore',
+  fenrir: 'Fenrir',
+  puck: 'Puck',
+  charon: 'Charon',
+  aoede: 'Aoede',
+}
+
+export const DEFAULT_KIRA_VOICE = 'Kore'
+
+// ------------------------------------------------------------------ Video models (official)
+export const KIRA_VIDEO_MODELS = ['kira-3.0-video', 'kira-3.0-video-flash'] as const
+export const DEFAULT_KIRA_VIDEO_MODEL = 'kira-3.0-video'
+export const KIRA_VIDEO_ASPECT_RATIOS = ['16:9', '9:16', '1:1'] as const
+export const KIRA_VIDEO_DURATIONS = [4, 6, 8] as const
 
 export class KiraError extends Error {}
 
@@ -72,25 +101,79 @@ export function hasKira(env: Bindings): boolean {
 export function getKiraModel(requested?: string, env?: Bindings): string {
   if (env?.KIRA_MODEL) return env.KIRA_MODEL
   if (requested && KIRA_MODELS[requested]) return KIRA_MODELS[requested]
+  // if requested is already a known official id, keep it
+  if (requested && Object.values(KIRA_MODELS).includes(requested)) return requested
   return DEFAULT_KIRA_MODEL
 }
 
 export function getKiraImageModel(requested?: string): string {
   if (!requested) return DEFAULT_KIRA_IMAGE_MODEL
-  if (KIRA_IMAGE_MODELS.includes(requested)) return requested
-  // map common aliases
-  if (requested.includes('flux')) return 'kira-flux'
-  if (requested.includes('dall-e')) return requested
+  const lower = requested.toLowerCase()
+  if ((KIRA_IMAGE_MODELS as readonly string[]).includes(lower)) return lower
+  if ((KIRA_IMAGE_MODELS as readonly string[]).includes(requested)) return requested
+  // legacy aliases mapping to official
+  if (lower.includes('3.0') || lower.includes('image-1') || lower.includes('image-pro') || lower.includes('flux') || lower.includes('dall-e')) {
+    return 'kira-3.0-image'
+  }
   return DEFAULT_KIRA_IMAGE_MODEL
+}
+
+export function getKiraTTSModel(requested?: string): string {
+  if (!requested) return DEFAULT_KIRA_TTS_MODEL
+  const lower = requested.toLowerCase()
+  if ((KIRA_TTS_MODELS as readonly string[]).includes(lower)) return lower
+  if ((KIRA_TTS_MODELS as readonly string[]).includes(requested)) return requested
+  if (lower.includes('2.0')) return 'kira-2.0-flash-tts'
+  return DEFAULT_KIRA_TTS_MODEL
 }
 
 export function getKiraVoice(requested?: string): string {
   if (!requested) return DEFAULT_KIRA_VOICE
-  if (KIRA_VOICES.includes(requested)) return requested
+  const mapped = KIRA_VOICE_MAP[requested] || KIRA_VOICE_MAP[requested.toLowerCase()]
+  if (mapped) return mapped
+  if ((KIRA_VOICES as readonly string[]).includes(requested)) return requested
+  // case-insensitive check for official voices
+  const lower = requested.toLowerCase()
+  for (const v of KIRA_VOICES) {
+    if (v.toLowerCase() === lower) return v
+  }
   return DEFAULT_KIRA_VOICE
 }
 
-/** Gọi chat completion qua Kira AI */
+export function getKiraVideoModel(requested?: string): string {
+  if (!requested) return DEFAULT_KIRA_VIDEO_MODEL
+  if ((KIRA_VIDEO_MODELS as readonly string[]).includes(requested)) return requested
+  const lower = requested.toLowerCase()
+  if ((KIRA_VIDEO_MODELS as readonly string[]).includes(lower)) return lower
+  if (lower.includes('flash')) return 'kira-3.0-video-flash'
+  return DEFAULT_KIRA_VIDEO_MODEL
+}
+
+export function getKiraAspectRatio(requested?: string, fallback: string = '9:16'): string {
+  if (!requested) return fallback
+  if ((KIRA_IMAGE_ASPECT_RATIOS as readonly string[]).includes(requested)) return requested
+  if ((KIRA_VIDEO_ASPECT_RATIOS as readonly string[]).includes(requested)) return requested
+  // map width/height to closest ratio
+  return fallback
+}
+
+// ------------------------------------------------------------------ helpers
+function b64ToBytes(b64: string): Uint8Array {
+  const clean = b64.replace(/\s+/g, '')
+  const bin = atob(clean)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
+}
+
+function guessImageContentType(bytes: Uint8Array): string {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50) return 'image/png'
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8) return 'image/jpeg'
+  if (bytes.length >= 4 && bytes[0] === 0x52 && bytes[1] === 0x49) return 'image/webp'
+  return 'image/png'
+}
+
+// ------------------------------------------------------------------ Chat
 export async function askKira(
   env: Bindings,
   system: string,
@@ -170,7 +253,6 @@ export async function askKiraJSON<T = any>(
   return extractKiraJSON<T>(raw)
 }
 
-// ------------------------------------------------------------------ unified helper
 export async function tryKiraFallback(
   env: Bindings,
   system: string,
@@ -189,47 +271,48 @@ export async function tryKiraFallback(
   }
 }
 
-// ================================================================== Media: Image
-
-function b64ToBytes(b64: string): Uint8Array {
-  const clean = b64.replace(/\s+/g, '')
-  const bin = atob(clean)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return bytes
-}
-
-function guessImageContentType(bytes: Uint8Array): string {
-  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50) return 'image/png'
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8) return 'image/jpeg'
-  if (bytes.length >= 4 && bytes[0] === 0x52 && bytes[1] === 0x49) return 'image/webp'
-  return 'image/png'
-}
+// ================================================================== Media: Image (official docs)
+// POST /images/generations {model: kira-3.0-image, prompt, aspect_ratio} -> {data:[{b64_json}]}
 
 export async function generateKiraImage(
   env: Bindings,
   prompt: string,
-  opts: { model?: string; width?: number; height?: number; n?: number } = {},
+  opts: {
+    model?: string
+    width?: number
+    height?: number
+    aspect_ratio?: string
+    n?: number
+  } = {},
   timeoutMs = 50_000
 ): Promise<{ bytes: ArrayBuffer; contentType: string }> {
   const resolved = resolveKira(env)
   if (!resolved) throw new KiraError('Chưa cấu hình KIRA_API_KEY')
 
   const model = getKiraImageModel(opts.model)
-  const width = Math.max(256, Math.min(2048, opts.width || 768))
-  const height = Math.max(256, Math.min(2048, opts.height || 1344))
+
+  // Convert width/height to aspect_ratio if provided, else use explicit aspect_ratio or default 9:16
+  let aspect_ratio = opts.aspect_ratio || '9:16'
+  if (opts.width && opts.height) {
+    const ratio = opts.width / opts.height
+    if (ratio > 1.5) aspect_ratio = '16:9'
+    else if (ratio < 0.7) aspect_ratio = '9:16'
+    else if (Math.abs(ratio - 1) < 0.1) aspect_ratio = '1:1'
+    else if (ratio > 1) aspect_ratio = '4:3'
+    else aspect_ratio = '3:4'
+  }
+  if (!(KIRA_IMAGE_ASPECT_RATIOS as readonly string[]).includes(aspect_ratio)) {
+    aspect_ratio = '9:16'
+  }
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    // Try OpenAI-compatible /images/generations
     const payload: any = {
       model,
       prompt,
-      n: opts.n || 1,
-      size: `${width}x${height}`,
-      response_format: 'b64_json',
+      aspect_ratio,
     }
 
     const res = await fetch(`${resolved.baseURL}/images/generations`, {
@@ -244,7 +327,6 @@ export async function generateKiraImage(
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
-      // If endpoint not found, try alternative /v1/images/generations already covered by baseURL
       throw new KiraError(`Kira Image ${res.status}: ${detail.slice(0, 500)}`)
     }
 
@@ -254,11 +336,10 @@ export async function generateKiraImage(
 
     if (first.b64_json) {
       const bytes = b64ToBytes(first.b64_json)
-      return { bytes: bytes.buffer as ArrayBuffer, contentType: guessImageContentType(bytes) }
+      return { bytes: bytes.buffer as ArrayBuffer, contentType: first.mime_type || guessImageContentType(bytes) }
     }
 
     if (first.url) {
-      // Download from URL (may be temporary)
       const imgRes = await fetch(first.url, { signal: controller.signal })
       if (!imgRes.ok) throw new KiraError(`Kira Image URL fetch ${imgRes.status}`)
       const ct = imgRes.headers.get('content-type') || 'image/png'
@@ -275,7 +356,8 @@ export async function generateKiraImage(
   }
 }
 
-// ================================================================== Media: Speech / TTS
+// ================================================================== Media: Speech / TTS (official)
+// POST /audio/speech {model: kira-3.0-flash-tts, input, voice} -> binary mp3
 
 export async function generateKiraSpeech(
   env: Bindings,
@@ -287,93 +369,216 @@ export async function generateKiraSpeech(
   if (!resolved) throw new KiraError('Chưa cấu hình KIRA_API_KEY')
 
   const voice = getKiraVoice(opts.voice)
-  const model = opts.model || 'kira-tts-1'
-  const format = opts.format || 'mp3'
+  const model = getKiraTTSModel(opts.model)
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
-  // Try endpoints in order: /audio/speech (OpenAI-compatible), /audio/voice, /v1/audio/speech
-  const endpoints = [
-    `${resolved.baseURL}/audio/speech`,
-    `${resolved.baseURL}/audio/voice`,
-    `${resolved.baseURL}/audio/generations`,
-  ]
-
-  let lastErr: any = null
-
-  for (const ep of endpoints) {
-    try {
-      const payload: any = {
-        model,
-        input: text,
-        voice,
-        response_format: format,
-      }
-
-      const res = await fetch(ep, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${resolved.apiKey}`,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      })
-
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '')
-        // 404 -> try next endpoint
-        if (res.status === 404) {
-          lastErr = new KiraError(`Kira Speech ${res.status} at ${ep}: ${detail.slice(0, 300)}`)
-          continue
-        }
-        throw new KiraError(`Kira Speech ${res.status}: ${detail.slice(0, 500)}`)
-      }
-
-      const ct = res.headers.get('content-type') || ''
-      // If JSON with b64 audio
-      if (ct.includes('application/json')) {
-        const data = (await res.json()) as any
-        // Possible shapes: { data: [{ b64 }]} or { audio: b64 } or { b64_json }
-        let b64: string | undefined
-        if (data?.data?.[0]?.b64_json) b64 = data.data[0].b64_json
-        else if (data?.data?.[0]?.b64) b64 = data.data[0].b64
-        else if (data?.audio) b64 = data.audio
-        else if (data?.b64_json) b64 = data.b64_json
-        else if (data?.url) {
-          const audRes = await fetch(data.url, { signal: controller.signal })
-          if (!audRes.ok) throw new KiraError(`Kira Speech URL fetch ${audRes.status}`)
-          const buf = await audRes.arrayBuffer()
-          const act = audRes.headers.get('content-type') || 'audio/mpeg'
-          return { bytes: buf, contentType: act }
-        }
-        if (b64) {
-          const bytes = b64ToBytes(b64)
-          const isWav = bytes.length > 4 && bytes[0] === 0x52 && bytes[1] === 0x49
-          return { bytes: bytes.buffer as ArrayBuffer, contentType: isWav ? 'audio/wav' : 'audio/mpeg' }
-        }
-        throw new KiraError('Kira Speech JSON không chứa audio')
-      }
-
-      // Binary audio directly
-      const buf = await res.arrayBuffer()
-      if (buf.byteLength < 100) throw new KiraError('Kira Speech trả về quá nhỏ')
-      const contentType = ct || (format === 'wav' ? 'audio/wav' : 'audio/mpeg')
-      return { bytes: buf, contentType }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') throw new KiraError('Kira Speech quá thời gian chờ')
-      lastErr = err
-      // If it's KiraError with 404 we already continue; else break on first success path
-      if (err instanceof KiraError && String(err.message).includes('404')) continue
-      // For other errors, if this was not last endpoint, try next
-      if (ep !== endpoints[endpoints.length - 1] && String(err?.message || '').includes('404')) continue
-      // Otherwise if it's final endpoint, throw
-      if (ep === endpoints[endpoints.length - 1]) break
-      // Try next
-      continue
+  try {
+    const payload: any = {
+      model,
+      input: text,
+      voice,
     }
+
+    const res = await fetch(`${resolved.baseURL}/audio/speech`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${resolved.apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      throw new KiraError(`Kira Speech ${res.status}: ${detail.slice(0, 500)}`)
+    }
+
+    const ct = res.headers.get('content-type') || ''
+    if (ct.includes('application/json')) {
+      const data = (await res.json()) as any
+      let b64: string | undefined
+      if (data?.data?.[0]?.b64_json) b64 = data.data[0].b64_json
+      else if (data?.b64_json) b64 = data.b64_json
+      else if (data?.audio) b64 = data.audio
+      else if (data?.url) {
+        const audRes = await fetch(data.url, { signal: controller.signal })
+        if (!audRes.ok) throw new KiraError(`Kira Speech URL fetch ${audRes.status}`)
+        const buf = await audRes.arrayBuffer()
+        const act = audRes.headers.get('content-type') || 'audio/mpeg'
+        return { bytes: buf, contentType: act }
+      }
+      if (b64) {
+        const bytes = b64ToBytes(b64)
+        const isWav = bytes.length > 4 && bytes[0] === 0x52 && bytes[1] === 0x49
+        return { bytes: bytes.buffer as ArrayBuffer, contentType: isWav ? 'audio/wav' : 'audio/mpeg' }
+      }
+      throw new KiraError('Kira Speech JSON không chứa audio')
+    }
+
+    const buf = await res.arrayBuffer()
+    if (buf.byteLength < 100) throw new KiraError('Kira Speech trả về quá nhỏ')
+    const contentType = ct || 'audio/mpeg'
+    return { bytes: buf, contentType }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw new KiraError('Kira Speech quá thời gian chờ')
+    throw err instanceof KiraError ? err : new KiraError(String(err?.message || err))
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// ================================================================== Media: Video (official)
+// POST /videos/generations {prompt, model, aspect_ratio, duration_seconds} -> {id}
+// GET /videos/operations/:id -> {done, data:[{b64_json}]}
+
+export async function generateKiraVideoStart(
+  env: Bindings,
+  prompt: string,
+  opts: {
+    model?: string
+    aspect_ratio?: string
+    duration_seconds?: number
+  } = {},
+  timeoutMs = 50_000
+): Promise<{ operationId: string; model: string }> {
+  const resolved = resolveKira(env)
+  if (!resolved) throw new KiraError('Chưa cấu hình KIRA_API_KEY')
+
+  const model = getKiraVideoModel(opts.model)
+  const aspect_ratio = getKiraAspectRatio(opts.aspect_ratio, '16:9')
+  const duration_seconds = opts.duration_seconds && KIRA_VIDEO_DURATIONS.includes(opts.duration_seconds as any) ? opts.duration_seconds : 6
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const payload: any = {
+      model,
+      prompt,
+      aspect_ratio,
+      duration_seconds,
+    }
+
+    const res = await fetch(`${resolved.baseURL}/videos/generations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${resolved.apiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      throw new KiraError(`Kira Video ${res.status}: ${detail.slice(0, 500)}`)
+    }
+
+    const data = (await res.json()) as any
+    const id = data?.id || data?.operation || data?.operation_id || data?.data?.id
+    if (!id) throw new KiraError('Kira Video không trả về operation id')
+    return { operationId: String(id), model }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw new KiraError('Kira Video quá thời gian chờ')
+    throw err instanceof KiraError ? err : new KiraError(String(err?.message || err))
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export async function getKiraVideoOperationStatus(
+  env: Bindings,
+  operationId: string,
+  timeoutMs = 50_000
+): Promise<
+  | { done: false }
+  | { done: true; bytes: ArrayBuffer; contentType: string }
+  | { done: true; error: string }
+> {
+  const resolved = resolveKira(env)
+  if (!resolved) throw new KiraError('Chưa cấu hình KIRA_API_KEY')
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetch(`${resolved.baseURL}/videos/operations/${encodeURIComponent(operationId)}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${resolved.apiKey}`,
+      },
+      signal: controller.signal,
+    })
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      throw new KiraError(`Kira Video status ${res.status}: ${detail.slice(0, 500)}`)
+    }
+
+    const data = (await res.json()) as any
+
+    if (data?.error) {
+      return { done: true, error: String(data.error?.message || data.error).slice(0, 500) }
+    }
+
+    if (!data?.done) {
+      return { done: false }
+    }
+
+    // done true
+    if (data?.error) {
+      return { done: true, error: String(data.error).slice(0, 500) }
+    }
+
+    const first = data?.data?.[0]
+    if (!first?.b64_json) {
+      // Some APIs return url
+      if (first?.url) {
+        const vRes = await fetch(first.url, { signal: controller.signal })
+        if (!vRes.ok) throw new KiraError(`Kira Video URL fetch ${vRes.status}`)
+        const buf = await vRes.arrayBuffer()
+        return { done: true, bytes: buf, contentType: vRes.headers.get('content-type') || 'video/mp4' }
+      }
+      throw new KiraError('Kira Video done nhưng không có b64_json')
+    }
+
+    const bytes = b64ToBytes(first.b64_json)
+    return { done: true, bytes: bytes.buffer as ArrayBuffer, contentType: first.mime_type || 'video/mp4' }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw new KiraError('Kira Video status quá thời gian chờ')
+    throw err instanceof KiraError ? err : new KiraError(String(err?.message || err))
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// Convenience: generate full video with polling (for server usage, but careful with timeout)
+export async function generateKiraVideo(
+  env: Bindings,
+  prompt: string,
+  opts: {
+    model?: string
+    aspect_ratio?: string
+    duration_seconds?: number
+    pollIntervalMs?: number
+    maxWaitMs?: number
+  } = {}
+): Promise<{ bytes: ArrayBuffer; contentType: string; operationId: string }> {
+  const { operationId } = await generateKiraVideoStart(env, prompt, opts)
+  const pollInterval = opts.pollIntervalMs || 5000
+  const maxWait = opts.maxWaitMs || 8 * 60 * 1000
+  const start = Date.now()
+
+  while (Date.now() - start < maxWait) {
+    await new Promise((r) => setTimeout(r, pollInterval))
+    const status = await getKiraVideoOperationStatus(env, operationId)
+    if (!status.done) continue
+    if ('error' in status) throw new KiraError(`Kira Video lỗi: ${status.error}`)
+    return { bytes: status.bytes, contentType: status.contentType, operationId }
   }
 
-  throw lastErr instanceof KiraError ? lastErr : new KiraError(String(lastErr?.message || lastErr || 'Kira Speech thất bại'))
+  throw new KiraError('Kira Video quá thời gian chờ (polling timeout)')
 }

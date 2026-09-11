@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Smoke test for Kira AI integration + Kira media integration + previous fixes
- * 17 checks — must all pass
+ * 17 checks — must all pass — official docs: https://kiraai.vn/documents/
  */
 import fs from 'fs'
 import path from 'path'
@@ -62,9 +62,9 @@ check('api/[...path].js exists and imports bundle', () => {
   return pathJs.includes('function-bundle.cjs') && pathJs.includes('export default')
 })
 
-// 6 — src/lib/kira.ts exists and has hasKira + KIRA_MODELS + askKira
-check('src/lib/kira.ts exists with Kira chat integration', () => {
-  return kiraTs.includes('KIRA_MODELS') && kiraTs.includes('hasKira') && kiraTs.includes('askKira') && kiraTs.includes('kiraai.vn')
+// 6 — src/lib/kira.ts exists and has hasKira + KIRA_MODELS + askKira + correct official models
+check('src/lib/kira.ts exists with Kira chat integration (official models)', () => {
+  return kiraTs.includes('KIRA_MODELS') && kiraTs.includes('hasKira') && kiraTs.includes('askKira') && kiraTs.includes('kiraai.vn') && kiraTs.includes('kira-3.5-flash') && kiraTs.includes('kira-3.5-pro')
 })
 
 // 7 — llm.ts has Kira fallback
@@ -92,9 +92,9 @@ check('src/index.tsx createBindings has KIRA_API_KEY', () => {
   return indexTs.includes('KIRA_API_KEY') && indexTs.includes('KIRA_BASE_URL') && indexTs.includes('KIRA_MODEL')
 })
 
-// 12 — public/static/app.js has upload buttons
-check('public/static/app.js has upload buttons', () => {
-  return appJs.includes('Tải ảnh lên') && appJs.includes('Tải voice có sẵn') && appJs.includes('/api/media/import-image') && appJs.includes('/api/media/import-audio')
+// 12 — public/static/app.js has upload buttons + Kira provider
+check('public/static/app.js has upload buttons + Kira provider', () => {
+  return appJs.includes('Tải ảnh lên') && appJs.includes('Tải voice có sẵn') && appJs.includes('/api/media/import-image') && appJs.includes('/api/media/import-audio') && (appJs.includes('kira') || appJs.includes('Kira'))
 })
 
 // 13 — db.ts has ensureSchema + SCHEMA_SQL
@@ -107,19 +107,19 @@ check('server/function-bundle.cjs exists (build xanh)', () => {
   return bundleExists
 })
 
-// 15 — Kira media: image generation
-check('src/lib/kira.ts has Kira media image integration', () => {
-  return kiraTs.includes('generateKiraImage') && kiraTs.includes('KIRA_IMAGE_MODELS') && kiraTs.includes('/images/generations') && kiraTs.includes('kira-image')
+// 15 — Kira media: image generation with official models
+check('src/lib/kira.ts has Kira media image integration (official)', () => {
+  return kiraTs.includes('generateKiraImage') && kiraTs.includes('KIRA_IMAGE_MODELS') && kiraTs.includes('/images/generations') && kiraTs.includes('kira-3.0-image') && kiraTs.includes('aspect_ratio')
 })
 
-// 16 — Kira media: speech/TTS generation
-check('src/lib/kira.ts has Kira media speech integration', () => {
-  return kiraTs.includes('generateKiraSpeech') && kiraTs.includes('KIRA_VOICES') && kiraTs.includes('/audio/speech') && kiraTs.includes('kira-female-1')
+// 16 — Kira media: speech/TTS generation with official models
+check('src/lib/kira.ts has Kira media speech integration (official)', () => {
+  return kiraTs.includes('generateKiraSpeech') && kiraTs.includes('KIRA_VOICES') && kiraTs.includes('/audio/speech') && kiraTs.includes('kira-3.0-flash-tts') && kiraTs.includes('Kore')
 })
 
-// 17 — index.tsx has Kira media endpoints and auto fallback for image/speech
-check('src/index.tsx has Kira media endpoints + auto fallback', () => {
-  return indexTs.includes('/api/kira/image') && indexTs.includes('/api/kira/speech') && indexTs.includes('kira_image_models') && indexTs.includes('kira_voices') && indexTs.includes('generateKiraImage') && indexTs.includes('generateKiraSpeech')
+// 17 — index.tsx has Kira media endpoints and auto fallback for image/speech/video
+check('src/index.tsx has Kira media endpoints + auto fallback + video', () => {
+  return indexTs.includes('/api/kira/image') && indexTs.includes('/api/kira/speech') && indexTs.includes('/api/kira/video') && indexTs.includes('kira_image_models') && indexTs.includes('kira_voices') && indexTs.includes('generateKiraImage') && indexTs.includes('generateKiraSpeech') && indexTs.includes('generateKiraVideoStart')
 })
 
 console.log(`\n--- Kira smoke: ${passed}/17 passed, ${failed} failed ---`)

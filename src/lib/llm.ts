@@ -10,10 +10,16 @@ export const TEXT_MODELS: Record<string, string> = {
   'gpt-5': 'gpt-5',
   'gpt-5.1': 'gpt-5.1',
   'gpt-5-nano': 'gpt-5-nano',
-  // Kira models cũng map vào đây để UI chọn được
-  'kira-auto': 'kira-auto',
-  'kira-2.0': 'kira-2.0',
-  'kira-3.0': 'kira-3.0',
+  // Kira official models per https://kiraai.vn/documents/
+  'kira-3.5-pro': 'kira-3.5-pro',
+  'kira-3.5-flash': 'kira-3.5-flash',
+  'kira-2.5-pro': 'kira-2.5-pro',
+  'kira-2.5-flash': 'kira-2.5-flash',
+  'kira-mini-1.0': 'kira-mini-1.0',
+  // legacy aliases
+  'kira-auto': 'kira-3.5-flash',
+  'kira-2.0': 'kira-2.5-flash',
+  'kira-3.0': 'kira-3.5-flash',
 }
 
 export const DEFAULT_TEXT_MODEL = 'gpt-5-mini'
@@ -148,9 +154,13 @@ export async function ask(
       if (k.label === 'kira' && env.KIRA_MODEL) {
         effectiveModel = env.KIRA_MODEL
       }
-      // Nếu model yêu cầu là gpt-5-* mà đang dùng Kira, map sang kira-auto nếu không có override
+      // Nếu model yêu cầu là gpt-5-* mà đang dùng Kira, map sang kira-3.5-flash nếu không có override (official default)
       if (k.label === 'kira' && !env.KIRA_MODEL && model.startsWith('gpt-')) {
-        effectiveModel = 'kira-auto'
+        effectiveModel = 'kira-3.5-flash'
+      }
+      // Map legacy kira-auto aliases to official
+      if (k.label === 'kira' && effectiveModel === 'kira-auto') {
+        effectiveModel = 'kira-3.5-flash'
       }
       const result = await callChatCompletion(k, system, user, effectiveModel, perProviderTimeout)
       if (k.label !== 'primary') {

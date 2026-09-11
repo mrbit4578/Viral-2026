@@ -303,12 +303,12 @@ function renderBlueprint() {
       <div class="tool-row">
         <button class="button primary" type="button" data-gen-images><i class="fas fa-images"></i> Tạo ảnh cho tất cả shot</button>
         <button class="button ghost" type="button" data-gen-cover><i class="fas fa-star"></i> Chỉ tạo ảnh bìa</button>
-        ${state.config?.gemini ? `
         <select id="image-provider" title="Nguồn tạo ảnh">
-          <option value="auto">Nguồn ảnh: Tự động (Gemini → Pollinations)</option>
+          <option value="auto">Nguồn ảnh: Tự động (Gemini → Kira 3.0 → Pollinations)</option>
           <option value="gemini">Gemini (Google) — bắt buộc</option>
+          <option value="kira">Kira 3.0 Image (kira-3.0-image) — kiraai.vn</option>
           <option value="pollinations">Pollinations (miễn phí)</option>
-        </select>` : ''}
+        </select>
         <label class="button ghost" style="cursor:pointer" title="Tải ảnh có sẵn lên — gán theo thứ tự shot (dùng được cả khi dịch vụ AI ngoại tuyến)">
           <i class="fas fa-cloud-arrow-up"></i> Tải ảnh lên
           <input type="file" id="upload-images" accept="image/png,image/jpeg,image/webp" multiple hidden>
@@ -326,6 +326,11 @@ function renderBlueprint() {
       <div class="section-title">Bước 05 · Giọng đọc AI <small>GOOGLE NEURAL TTS</small></div>
       <div class="tool-row">
         <button class="button primary" type="button" data-gen-voice><i class="fas fa-microphone-lines"></i> Tạo voice-over</button>
+        <select id="speech-provider" title="Nguồn giọng đọc">
+          <option value="auto">Giọng đọc: Tự động (Kira 3.0 TTS → Google)</option>
+          <option value="kira">Kira 3.0 TTS (Kore, Fenrir, Puck, Charon, Aoede) — kiraai.vn</option>
+          <option value="google">Google TTS</option>
+        </select>
         <label class="button ghost" style="cursor:pointer" title="Tải voice-over của bạn lên (bỏ qua TTS — dùng được cả khi TTS ngoại tuyến)">
           <i class="fas fa-cloud-arrow-up"></i> Tải voice có sẵn
           <input type="file" id="upload-voice" accept="audio/*" hidden>
@@ -368,6 +373,28 @@ function renderBlueprint() {
           <div class="bar"><i id="aivideo-bar"></i></div>
         </div>
       </div>` : ''}
+      <div class="ai-video-block" style="margin-top:16px;border-top:1px dashed rgba(102,245,205,.25);padding-top:14px">
+        <div class="section-title">Phương án 3 · Video AI bằng Kira 3.0 Video <small>VIDEO AI · KIRA.AI.VN · CẦN KIRA_API_KEY</small></div>
+        <label style="display:block;margin-bottom:10px">Prompt video Kira (từ concept — có thể chỉnh)
+          <textarea id="kira-video-prompt" rows="3" spellcheck="false">${safe(bp.concept)}. Cinematic vertical video, smooth camera movement, high detail, 9:16 aspect ratio.</textarea>
+        </label>
+        <div class="tool-row">
+          <button class="button primary" type="button" data-gen-kira-video><i class="fas fa-video"></i> Tạo video bằng Kira AI</button>
+          <select id="kira-video-model" title="Model Kira Video">
+            <option value="kira-3.0-video">kira-3.0-video</option>
+            <option value="kira-3.0-video-flash">kira-3.0-video-flash</option>
+          </select>
+          <select id="kira-video-ratio" title="Tỷ lệ video">
+            <option value="9:16">9:16 (Vertical)</option>
+            <option value="16:9">16:9 (Horizontal)</option>
+            <option value="1:1">1:1 (Square)</option>
+          </select>
+        </div>
+        <div class="job" id="kira-video-job">
+          <div class="job-line"><span id="kira-video-msg">Sẵn sàng</span><b id="kira-video-pct">0%</b></div>
+          <div class="bar"><i id="kira-video-bar"></i></div>
+        </div>
+      </div>
     </section>
 
     <section class="section-card">
@@ -464,7 +491,9 @@ async function generateShotImage(index) {
       shot_index: index,
       width: 768,
       height: 1344,
+      aspect_ratio: '9:16',
       provider: $('#image-provider')?.value || 'auto',
+      kira_model: 'kira-3.0-image',
     }),
   });
   state.images[index] = { url: data.url, key: data.key, fallback: Boolean(data.fallback), provider: data.provider };
@@ -533,7 +562,7 @@ async function generateVoice(button) {
     progress('audio', 25, 'Đang tổng hợp giọng đọc…');
     const data = await api('/api/media/speech', {
       method: 'POST',
-      body: JSON.stringify({ text: script, voice: $('#voice').value, blueprint_id: state.blueprintId }),
+      body: JSON.stringify({ text: script, voice: $('#voice').value, blueprint_id: state.blueprintId, provider: $('#speech-provider')?.value || 'auto', kira_voice: 'Kore', kira_model: 'kira-3.0-flash-tts' }),
     });
     state.audio = { url: data.url, key: data.key };
     const note = data.fallback
@@ -899,6 +928,49 @@ async function genAiVideo(button) {
   } finally { restore(); }
 }
 
+/* ============================== BƯỚC 6c: video AI bằng Kira ============================== */
+async function genKiraVideo(button) {
+  const bp = state.blueprint;
+  if (!bp) return notify('Chưa có blueprint', true);
+  const prompt = ($('#kira-video-prompt')?.value || bp.concept || '').trim();
+  if (prompt.length < 8) return notify('Prompt video quá ngắn', true);
+  const restore = busy(button, 'Đang gửi Kira Video…');
+  try {
+    progress('kira-video', 4, 'Đang khởi động Kira Video…');
+    const start = await api('/api/kira/video', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, model: $('#kira-video-model')?.value || 'kira-3.0-video', aspect_ratio: $('#kira-video-ratio')?.value || '9:16', duration_seconds: 6, blueprint_id: state.blueprintId }),
+    });
+    const opId = start.operationId || start.operation;
+    if (!opId) throw new Error('Kira Video không trả về operation id');
+    const t0 = Date.now();
+    const MAX_MS = 8 * 60 * 1000;
+    const POLL_MS = 7000;
+    let final = null;
+    while (Date.now() - t0 < MAX_MS) {
+      await new Promise((r) => setTimeout(r, POLL_MS));
+      const st = await api(`/api/kira/video/status?id=${encodeURIComponent(opId)}&blueprint_id=${encodeURIComponent(state.blueprintId || '')}`);
+      if (st.done) { final = st; break; }
+      const pct = Math.min(92, 6 + ((Date.now() - t0) / MAX_MS) * 86);
+      progress('kira-video', pct, 'Kira Video đang tạo (thường 1–3 phút)…');
+    }
+    if (!final) throw new Error('Kira Video quá thời gian');
+    if (final.error) throw new Error('Kira Video lỗi: ' + final.error);
+    if (!final.url) throw new Error('Không nhận được URL video Kira');
+    state.video = { url: final.url, key: final.key || null };
+    progress('kira-video', 100, 'Kira Video hoàn tất');
+    const html = `
+      <video controls src="${safe(final.url)}"></video>
+      <a class="download" href="${safe(final.url)}" download="kira-video.mp4"><i class="fas fa-download"></i> TẢI VIDEO KIRA</a>`;
+    $('#video-output').innerHTML = html;
+    notify('Kira Video đã tạo xong');
+    loadLibrary();
+  } catch (err) {
+    progress('kira-video', 0, 'Kira Video thất bại');
+    notify(err.message, true);
+  } finally { restore(); }
+}
+
 /* ============================== BƯỚC 7: gói phân phối ============================== */
 const PLATFORM_ICON = {
   tiktok: 'fab fa-tiktok', facebook: 'fab fa-facebook',
@@ -992,6 +1064,7 @@ $('#blueprint').addEventListener('click', (event) => {
   if (target.hasAttribute('data-gen-voice')) return generateVoice(target);
   if (target.hasAttribute('data-open-render')) return renderVideo();
   if (target.hasAttribute('data-gen-ai-video')) return genAiVideo(target);
+  if (target.hasAttribute('data-gen-kira-video')) return genKiraVideo(target);
   if (target.hasAttribute('data-build-packs')) return buildPacks(target);
 });
 
