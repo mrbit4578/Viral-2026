@@ -1,7 +1,7 @@
 /**
  * LLM helper — cổng gọi model text.
  * Port từ backend/ai_engine.py của faceless-forge (Emergent key -> OpenAI proxy).
- * Thêm fallback Explabs để tăng độ sẵn sàng khi primary (Genspark/OpenAI) lỗi.
+ * Thêm fallback Explabs + Kira AI để tăng độ sẵn sàng khi primary (Genspark/OpenAI) lỗi.
  */
 import type { Bindings } from '../types.js'
 
@@ -10,6 +10,10 @@ export const TEXT_MODELS: Record<string, string> = {
   'gpt-5': 'gpt-5',
   'gpt-5.1': 'gpt-5.1',
   'gpt-5-nano': 'gpt-5-nano',
+  // Kira models cũng map vào đây để UI chọn được
+  'kira-auto': 'kira-auto',
+  'kira-2.0': 'kira-2.0',
+  'kira-3.0': 'kira-3.0',
 }
 
 export const DEFAULT_TEXT_MODEL = 'gpt-5-mini'
@@ -28,10 +32,17 @@ function resolvePrimary(env: Bindings): ResolvedKey | null {
 function resolveExplabs(env: Bindings): ResolvedKey | null {
   const apiKey = (env as any).EXPLABS_API_KEY?.trim() || env.EXPLABS_API_KEY?.trim()
   if (!apiKey) return null
-  // Cho phép cấu hình base URL riêng, mặc định dùng endpoint OpenAI-compatible của Explabs
   const rawBase = (env as any).EXPLABS_BASE_URL || env.EXPLABS_BASE_URL || 'https://api.explabs.ai/v1'
   const baseURL = String(rawBase).replace(/\/$/, '')
   return { apiKey, baseURL, label: 'explabs' }
+}
+
+function resolveKira(env: Bindings): ResolvedKey | null {
+  const apiKey = env.KIRA_API_KEY?.trim() || (env as any).KIRA_API_KEY?.trim()
+  if (!apiKey) return null
+  const rawBase = env.KIRA_BASE_URL || (env as any).KIRA_BASE_URL || 'https://kiraai.vn/api/v1'
+  const baseURL = String(rawBase).replace(/\/$/, '')
+  return { apiKey, baseURL, label: 'kira' }
 }
 
 function resolveAll(env: Bindings): ResolvedKey[] {
@@ -40,6 +51,8 @@ function resolveAll(env: Bindings): ResolvedKey[] {
   if (p) list.push(p)
   const e = resolveExplabs(env)
   if (e) list.push(e)
+  const k = resolveKira(env)
+  if (k) list.push(k)
   return list
 }
 
@@ -47,18 +60,8 @@ export function hasLLM(env: Bindings): boolean {
   return resolveAll(env).length > 0
 }
 
-function getModelForProvider(requested: string, provider: string): string {
-  const chosen = TEXT_MODELS[requested] || DEFAULT_TEXT_MODEL
-  // Nếu Explabs dùng model name khác, cho phép override qua EXPLABS_MODEL
-  if (provider === 'explabs') {
-    const override = (globalThis as any).process?.env?.EXPLABS_MODEL || ''
-    // env passed via Bindings may contain EXPLABS_MODEL
-    // @ts-ignore
-    const envModel = (globalThis as any).__EXPLABS_MODEL__ as string | undefined
-    // Try to read from Bindings in caller context — handled via closure
-    return chosen
-  }
-  return chosen
+export function hasKiraLLM(env: Bindings): boolean {
+  return Boolean(resolveKira(env))
 }
 
 async function callChatCompletion(
@@ -71,9 +74,14 @@ async function callChatCompletion(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const chosen = TEXT_MODELS[model] || DEFAULT_TEXT_MODEL
-    // Nếu là Explabs và có EXPLABS_MODEL cấu hình, ưu tiên dùng model đó khi model yêu cầu là default
-    // Việc map model cụ thể do env quyết định — giữ tương thích OpenAI.
+    let chosen = TEXT_MODELS[model] || model || DEFAULT_TEXT_MODEL
+
+    // Nếu là Explabs/Kira và có MODEL override, dùng override
+    // @ts-ignore
+    if (key.label === 'explabs' && (globalThis as any).process?.env?.EXPLABS_MODEL) {
+      // giữ logic cũ
+    }
+
     const res = await fetch(`${key.baseURL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -91,10 +99,20 @@ async function callChatCompletion(
     })
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
-      throw new LLMError(`LLM ${key.label} ${res.status}: ${detail.slice(0, 300)}`)
+      throw new LLMError(`LLM ${key.label} ${res.status}: ${detail.slice(0, 400)}`)
     }
     const data = (await res.json()) as any
-    const text = data?.choices?.[0]?.message?.content
+    // Hỗ trợ cả Responses API (Kira) và Chat Completions
+    let text: string | undefined
+    if (typeof data?.choices?.[0]?.message?.content === 'string') {
+      text = data.choices[0].message.content
+    } else if (typeof data?.choices?.[0]?.text === 'string') {
+      text = data.choices[0].text
+    } else if (typeof data?.output?.[0]?.content?.[0]?.text === 'string') {
+      text = data.output[0].content[0].text
+    } else if (typeof data?.output_text === 'string') {
+      text = data.output_text
+    }
     if (typeof text !== 'string' || !text.trim()) {
       throw new LLMError(`LLM ${key.label} trả về nội dung trống`)
     }
@@ -107,7 +125,7 @@ async function callChatCompletion(
   }
 }
 
-/** Gọi chat completion, trả về text thuần — có fallback Explabs. */
+/** Gọi chat completion, trả về text thuần — có fallback Explabs + Kira. */
 export async function ask(
   env: Bindings,
   system: string,
@@ -116,19 +134,23 @@ export async function ask(
   timeoutMs = 50_000
 ): Promise<string> {
   const keys = resolveAll(env)
-  if (!keys.length) throw new LLMError('Chưa cấu hình OPENAI_API_KEY hoặc EXPLABS_API_KEY')
+  if (!keys.length) throw new LLMError('Chưa cấu hình OPENAI_API_KEY, EXPLABS_API_KEY hoặc KIRA_API_KEY')
 
   let lastError: unknown = null
-  // Thử lần lượt primary -> explabs, chia timeout cho mỗi provider
   const perProviderTimeout = keys.length > 1 ? Math.floor(timeoutMs / keys.length) : timeoutMs
 
   for (const k of keys) {
     try {
-      // Nếu env có EXPLABS_MODEL và đang dùng explabs provider, cho phép override model
       let effectiveModel = model
       if (k.label === 'explabs' && env.EXPLABS_MODEL) {
-        // Nếu model yêu cầu là default hoặc không nằm trong danh sách Explabs, dùng EXPLABS_MODEL
         effectiveModel = env.EXPLABS_MODEL
+      }
+      if (k.label === 'kira' && env.KIRA_MODEL) {
+        effectiveModel = env.KIRA_MODEL
+      }
+      // Nếu model yêu cầu là gpt-5-* mà đang dùng Kira, map sang kira-auto nếu không có override
+      if (k.label === 'kira' && !env.KIRA_MODEL && model.startsWith('gpt-')) {
+        effectiveModel = 'kira-auto'
       }
       const result = await callChatCompletion(k, system, user, effectiveModel, perProviderTimeout)
       if (k.label !== 'primary') {
@@ -138,7 +160,6 @@ export async function ask(
     } catch (e) {
       lastError = e
       console.warn(`[llm] ${k.label} failed:`, String((e as any)?.message || e).slice(0, 300))
-      // Tiếp tục thử provider tiếp theo
       continue
     }
   }
