@@ -47986,6 +47986,7 @@ async function putAsset(env, key, body, contentType) {
     const msg = String(err?.message || "").toLowerCase();
     if (msg.includes("private") || msg.includes("access") || msg.includes("forbidden") || msg.includes("store")) {
       blob = await put(key, body, {
+        access: "private",
         addRandomSuffix: false,
         contentType,
         token: env.BLOB_READ_WRITE_TOKEN

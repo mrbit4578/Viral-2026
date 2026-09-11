@@ -32,10 +32,11 @@ export async function putAsset(
     } as any)
   } catch (err: any) {
     const msg = String(err?.message || '').toLowerCase()
-    // Private store không cho phép public access → fallback không chỉ định access
-    // hoặc thử lại — Vercel Blob private store sẽ trả về pathname + url private
+    // Private store không cho phép public access → dùng access:'private' tường minh.
+    // @vercel/blob v2 bắt buộc khai báo access, bỏ trống sẽ lỗi ngay.
     if (msg.includes('private') || msg.includes('access') || msg.includes('forbidden') || msg.includes('store')) {
       blob = await put(key, body, {
+        access: 'private',
         addRandomSuffix: false,
         contentType,
         token: env.BLOB_READ_WRITE_TOKEN,
