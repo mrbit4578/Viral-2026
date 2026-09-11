@@ -81,8 +81,8 @@ check('src/index.tsx has /api/media/ai-video + /ai-video/status', () => {
 })
 
 // 10 — media proxy endpoint fixed (not 404)
-check('src/index.tsx /api/media/* proxies blob via head+downloadUrl', () => {
-  return indexTs.includes('/api/media/*') && indexTs.includes('head') && indexTs.includes('downloadUrl') && indexTs.includes('Fix Blob private-store')
+check('src/index.tsx /api/media/* proxies private blob via get(access:private)', () => {
+  return indexTs.includes('/api/media/*') && indexTs.includes("access: 'private'") && indexTs.includes("import('@vercel/blob')")
 })
 
 // 11 — kira endpoints complete

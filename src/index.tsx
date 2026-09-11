@@ -1021,9 +1021,8 @@ app.post('/api/blob/upload', async (c) => {
 })
 
 app.get('/api/media/*', async (c) => {
-  // Fix Blob private-store: proxy media qua Function với token
-  // Hỗ trợ cả pathname (images/xxx.jpg) và full blob URL (https://...vercel-storage.com/...)
-  // để private store hoạt động được
+  // Proxy media qua Function: private store không có URL công khai, phải lấy
+  // nội dung bằng get(pathname, { access: 'private' }) của @vercel/blob v2.
   const rawPath = c.req.path.replace(/^\/api\/media\//, '')
   if (!rawPath) return c.json(bad('Thiếu key'), 400)
   let key: string
@@ -1032,87 +1031,35 @@ app.get('/api/media/*', async (c) => {
   } catch {
     key = rawPath
   }
-  if (!key) return c.json(bad('Thiếu key'), 400)
-  if (key.startsWith('data:')) {
-    return c.json(bad('Data URL không thể proxy'), 400)
-  }
+  if (!key || key.startsWith('data:')) return c.json(bad('Key không hợp lệ'), 400)
 
-  // Trường hợp key là full https URL (proxy cho private blob)
+  // Chấp nhận cả pathname (images/...) lẫn full blob URL — rút gọn về pathname
+  let pathname = key
   if (/^https:\/\//i.test(key)) {
     try {
-      // Thử fetch trực tiếp trước (public blob)
-      const direct = await fetch(key)
-      if (direct.ok) {
-        const ct = direct.headers.get('content-type') || 'application/octet-stream'
-        const buf = await direct.arrayBuffer()
-        return new Response(buf, {
-          headers: {
-            'Content-Type': ct,
-            'Cache-Control': 'public, max-age=31536000, immutable',
-            'Content-Length': String(buf.byteLength),
-          },
-        })
-      }
+      pathname = new URL(key).pathname.replace(/^\//, '')
     } catch {
-      // bỏ qua, thử head fallback
+      return c.json(bad('Key không hợp lệ'), 400)
     }
-    // Fallback: extract pathname từ URL và dùng head() để lấy downloadUrl private
-    if (c.env.BLOB_READ_WRITE_TOKEN) {
-      try {
-        const { head } = await import('@vercel/blob')
-        const urlObj = new URL(key)
-        const pathname = urlObj.pathname.replace(/^\//, '')
-        if (pathname) {
-          const meta = await (head as any)(pathname, { token: c.env.BLOB_READ_WRITE_TOKEN })
-          const dl = meta?.downloadUrl || meta?.url
-          if (dl) {
-            const res = await fetch(dl)
-            if (res.ok) {
-              const ct = res.headers.get('content-type') || meta.contentType || 'application/octet-stream'
-              const buf = await res.arrayBuffer()
-              return new Response(buf, {
-                headers: {
-                  'Content-Type': ct,
-                  'Cache-Control': 'public, max-age=31536000, immutable',
-                  'Content-Length': String(buf.byteLength),
-                },
-              })
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('blob proxy head fallback failed', String((e as any)?.message || e).slice(0, 200))
-      }
-    }
-    return c.json(bad('Không tải được media'), 404)
   }
+  if (!pathname) return c.json(bad('Thiếu key'), 400)
+  if (!c.env.BLOB_READ_WRITE_TOKEN) return c.json(bad('Chưa cấu hình BLOB_READ_WRITE_TOKEN'), 503)
 
-  // key là pathname: images/..., videos/... etc
-  if (!c.env.BLOB_READ_WRITE_TOKEN) {
-    return c.json(bad('Chưa cấu hình BLOB_READ_WRITE_TOKEN'), 503)
-  }
   try {
-    const { head } = await import('@vercel/blob')
-    const meta = await (head as any)(key, { token: c.env.BLOB_READ_WRITE_TOKEN })
-    console.log('[DEBUG proxy] head ok | keys:', Object.keys(meta || {}).join(','), '| hasDL:', !!meta?.downloadUrl, '| url host:', (()=>{try{return new URL(meta.url).host}catch{return '?'}})())
-    const downloadUrl = meta?.downloadUrl || meta?.url
-    if (!downloadUrl) return c.json(bad('Media không tồn tại'), 404)
-    const res = await fetch(downloadUrl)
-    console.log('[DEBUG proxy] fetch dl status:', res.status, '| ct:', res.headers.get('content-type'))
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '')
-      console.log('[DEBUG proxy] dl 403 body:', errBody.slice(0, 300), '| dl path:', (()=>{try{return new URL(downloadUrl).pathname + ' | q:' + [...new URL(downloadUrl).searchParams.keys()].join(',')}catch{return '?'}})())
-      return c.json(bad('Không tải được media'), 404)
-    }
-    const ct = res.headers.get('content-type') || meta.contentType || 'application/octet-stream'
-    const buf = await res.arrayBuffer()
-    return new Response(buf, {
-      headers: {
-        'Content-Type': ct,
-        'Cache-Control': 'public, max-age=31536000, immutable',
-        'Content-Length': String(buf.byteLength),
-      },
+    const { get } = await import('@vercel/blob')
+    const result = await (get as any)(pathname, {
+      access: 'private',
+      token: c.env.BLOB_READ_WRITE_TOKEN,
     })
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      return c.json(bad('Media không tồn tại'), 404)
+    }
+    const headers = new Headers()
+    headers.set('Content-Type', result.blob?.contentType || 'application/octet-stream')
+    if (result.blob?.size) headers.set('Content-Length', String(result.blob.size))
+    headers.set('Cache-Control', 'private, max-age=3600')
+    headers.set('Content-Disposition', `inline; filename="${pathname.split('/').pop() || 'media'}"`)
+    return new Response(result.stream, { headers })
   } catch (e: any) {
     const msg = String(e?.message || '')
     if (msg.toLowerCase().includes('not found') || msg.includes('404')) {

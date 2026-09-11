@@ -139,8 +139,8 @@ check('src/lib/media.ts deleteAsset handles pathname (private-store)', () => {
 })
 
 // 21 — Blob private-store fix: /api/media/* serves blob via head+downloadUrl not 404
-check('src/index.tsx /api/media/* serves blob via head+downloadUrl (private-store fix)', () => {
-  return indexTs.includes('/api/media/*') && indexTs.includes('head') && indexTs.includes('downloadUrl') && indexTs.includes('Fix Blob private-store') && !indexTs.includes("return c.json(bad('Media mới được phục vụ trực tiếp qua Vercel Blob URL'), 404)")
+check('src/index.tsx /api/media/* serves private blob via get(access:private) (private-store fix)', () => {
+  return indexTs.includes('/api/media/*') && indexTs.includes("access: 'private'") && indexTs.includes("import('@vercel/blob')") && !indexTs.includes("return c.json(bad('Media mới được phục vụ trực tiếp qua Vercel Blob URL'), 404)")
 })
 
 // 22 — Blob private-store fix: /api/media/video accepts pathname + blob URL

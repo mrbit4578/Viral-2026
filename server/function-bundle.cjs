@@ -57205,92 +57205,32 @@ app.get("/api/media/*", async (c) => {
   } catch {
     key = rawPath;
   }
-  if (!key) return c.json(bad("Thi\u1EBFu key"), 400);
-  if (key.startsWith("data:")) {
-    return c.json(bad("Data URL kh\xF4ng th\u1EC3 proxy"), 400);
-  }
+  if (!key || key.startsWith("data:")) return c.json(bad("Key kh\xF4ng h\u1EE3p l\u1EC7"), 400);
+  let pathname = key;
   if (/^https:\/\//i.test(key)) {
     try {
-      const direct = await fetch(key);
-      if (direct.ok) {
-        const ct2 = direct.headers.get("content-type") || "application/octet-stream";
-        const buf = await direct.arrayBuffer();
-        return new Response(buf, {
-          headers: {
-            "Content-Type": ct2,
-            "Cache-Control": "public, max-age=31536000, immutable",
-            "Content-Length": String(buf.byteLength)
-          }
-        });
-      }
+      pathname = new URL(key).pathname.replace(/^\//, "");
     } catch {
+      return c.json(bad("Key kh\xF4ng h\u1EE3p l\u1EC7"), 400);
     }
-    if (c.env.BLOB_READ_WRITE_TOKEN) {
-      try {
-        const { head: head2 } = await Promise.resolve().then(() => (init_dist(), dist_exports));
-        const urlObj = new URL(key);
-        const pathname = urlObj.pathname.replace(/^\//, "");
-        if (pathname) {
-          const meta = await head2(pathname, { token: c.env.BLOB_READ_WRITE_TOKEN });
-          const dl = meta?.downloadUrl || meta?.url;
-          if (dl) {
-            const res = await fetch(dl);
-            if (res.ok) {
-              const ct2 = res.headers.get("content-type") || meta.contentType || "application/octet-stream";
-              const buf = await res.arrayBuffer();
-              return new Response(buf, {
-                headers: {
-                  "Content-Type": ct2,
-                  "Cache-Control": "public, max-age=31536000, immutable",
-                  "Content-Length": String(buf.byteLength)
-                }
-              });
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("blob proxy head fallback failed", String(e?.message || e).slice(0, 200));
-      }
-    }
-    return c.json(bad("Kh\xF4ng t\u1EA3i \u0111\u01B0\u1EE3c media"), 404);
   }
-  if (!c.env.BLOB_READ_WRITE_TOKEN) {
-    return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh BLOB_READ_WRITE_TOKEN"), 503);
-  }
+  if (!pathname) return c.json(bad("Thi\u1EBFu key"), 400);
+  if (!c.env.BLOB_READ_WRITE_TOKEN) return c.json(bad("Ch\u01B0a c\u1EA5u h\xECnh BLOB_READ_WRITE_TOKEN"), 503);
   try {
-    const { head: head2 } = await Promise.resolve().then(() => (init_dist(), dist_exports));
-    const meta = await head2(key, { token: c.env.BLOB_READ_WRITE_TOKEN });
-    console.log("[DEBUG proxy] head ok | keys:", Object.keys(meta || {}).join(","), "| hasDL:", !!meta?.downloadUrl, "| url host:", (() => {
-      try {
-        return new URL(meta.url).host;
-      } catch {
-        return "?";
-      }
-    })());
-    const downloadUrl = meta?.downloadUrl || meta?.url;
-    if (!downloadUrl) return c.json(bad("Media kh\xF4ng t\u1ED3n t\u1EA1i"), 404);
-    const res = await fetch(downloadUrl);
-    console.log("[DEBUG proxy] fetch dl status:", res.status, "| ct:", res.headers.get("content-type"));
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => "");
-      console.log("[DEBUG proxy] dl 403 body:", errBody.slice(0, 300), "| dl path:", (() => {
-        try {
-          return new URL(downloadUrl).pathname + " | q:" + [...new URL(downloadUrl).searchParams.keys()].join(",");
-        } catch {
-          return "?";
-        }
-      })());
-      return c.json(bad("Kh\xF4ng t\u1EA3i \u0111\u01B0\u1EE3c media"), 404);
-    }
-    const ct2 = res.headers.get("content-type") || meta.contentType || "application/octet-stream";
-    const buf = await res.arrayBuffer();
-    return new Response(buf, {
-      headers: {
-        "Content-Type": ct2,
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Length": String(buf.byteLength)
-      }
+    const { get: get2 } = await Promise.resolve().then(() => (init_dist(), dist_exports));
+    const result = await get2(pathname, {
+      access: "private",
+      token: c.env.BLOB_READ_WRITE_TOKEN
     });
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      return c.json(bad("Media kh\xF4ng t\u1ED3n t\u1EA1i"), 404);
+    }
+    const headers = new Headers();
+    headers.set("Content-Type", result.blob?.contentType || "application/octet-stream");
+    if (result.blob?.size) headers.set("Content-Length", String(result.blob.size));
+    headers.set("Cache-Control", "private, max-age=3600");
+    headers.set("Content-Disposition", `inline; filename="${pathname.split("/").pop() || "media"}"`);
+    return new Response(result.stream, { headers });
   } catch (e) {
     const msg = String(e?.message || "");
     if (msg.toLowerCase().includes("not found") || msg.includes("404")) {
