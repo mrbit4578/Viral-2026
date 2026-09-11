@@ -57260,9 +57260,17 @@ app.get("/api/media/*", async (c) => {
   try {
     const { head: head2 } = await Promise.resolve().then(() => (init_dist(), dist_exports));
     const meta = await head2(key, { token: c.env.BLOB_READ_WRITE_TOKEN });
+    console.log("[DEBUG proxy] head ok | keys:", Object.keys(meta || {}).join(","), "| hasDL:", !!meta?.downloadUrl, "| url host:", (() => {
+      try {
+        return new URL(meta.url).host;
+      } catch {
+        return "?";
+      }
+    })());
     const downloadUrl = meta?.downloadUrl || meta?.url;
     if (!downloadUrl) return c.json(bad("Media kh\xF4ng t\u1ED3n t\u1EA1i"), 404);
     const res = await fetch(downloadUrl);
+    console.log("[DEBUG proxy] fetch dl status:", res.status, "| ct:", res.headers.get("content-type"));
     if (!res.ok) return c.json(bad("Kh\xF4ng t\u1EA3i \u0111\u01B0\u1EE3c media"), 404);
     const ct2 = res.headers.get("content-type") || meta.contentType || "application/octet-stream";
     const buf = await res.arrayBuffer();

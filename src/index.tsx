@@ -1094,9 +1094,11 @@ app.get('/api/media/*', async (c) => {
   try {
     const { head } = await import('@vercel/blob')
     const meta = await (head as any)(key, { token: c.env.BLOB_READ_WRITE_TOKEN })
+    console.log('[DEBUG proxy] head ok | keys:', Object.keys(meta || {}).join(','), '| hasDL:', !!meta?.downloadUrl, '| url host:', (()=>{try{return new URL(meta.url).host}catch{return '?'}})())
     const downloadUrl = meta?.downloadUrl || meta?.url
     if (!downloadUrl) return c.json(bad('Media không tồn tại'), 404)
     const res = await fetch(downloadUrl)
+    console.log('[DEBUG proxy] fetch dl status:', res.status, '| ct:', res.headers.get('content-type'))
     if (!res.ok) return c.json(bad('Không tải được media'), 404)
     const ct = res.headers.get('content-type') || meta.contentType || 'application/octet-stream'
     const buf = await res.arrayBuffer()
