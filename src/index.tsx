@@ -41,6 +41,7 @@ import {
   hasGemini,
   startVeoOperation,
 } from './lib/gemini.js'
+import { DEFAULT_KIRA_MODEL, KIRA_MODELS, askKira, hasKira } from './lib/kira.js'
 import { renderPage } from './page.js'
 import { renderStudio } from './studio-page.js'
 
@@ -106,6 +107,8 @@ app.get('/api/health', async (c) => {
     db_auto_created: autoCreated,
     blob,
     llm: hasLLM(c.env),
+    kira: hasKira(c.env),
+    gemini: hasGemini(c.env),
     engines: { image: true, tts: true, video: 'browser-canvas' },
     time: now(),
   })
@@ -132,9 +135,35 @@ app.get('/api/config', (c) =>
     voices: VOICES,
     platforms: PLATFORMS.map((p) => ({ key: p, ...PLATFORM_SPECS[p] })),
     llm: hasLLM(c.env),
+    kira: hasKira(c.env),
+    kira_models: Object.keys(KIRA_MODELS),
+    default_kira_model: DEFAULT_KIRA_MODEL,
     gemini: hasGemini(c.env),
     gemini_image_models: GEMINI_IMAGE_MODELS,
     veo_models: VEO_MODELS,
+  })
+)
+
+// Kira AI direct endpoint — cho phép test riêng Kira mà không qua fallback chain
+app.post('/api/kira/chat', async (c) => {
+  if (!hasKira(c.env)) return c.json(bad('Chưa cấu hình KIRA_API_KEY', 503), 503)
+  const body = await c.req.json().catch(() => ({}))
+  const system = String(body.system || 'Bạn là trợ lý AI hữu ích').slice(0, 2000)
+  const user = String(body.user || body.prompt || '').trim()
+  if (!user) return c.json(bad('Thiếu nội dung user'), 400)
+  try {
+    const text = await askKira(c.env, system, user, String(body.model || DEFAULT_KIRA_MODEL))
+    return c.json({ text, model: String(body.model || DEFAULT_KIRA_MODEL), provider: 'kira', ai: true })
+  } catch (e: any) {
+    return c.json(bad(`Kira thất bại: ${String(e?.message || e).slice(0, 300)}`, 502), 502)
+  }
+})
+
+app.get('/api/kira/models', (c) =>
+  c.json({
+    models: Object.entries(KIRA_MODELS).map(([k, v]) => ({ id: k, name: v })),
+    default: DEFAULT_KIRA_MODEL,
+    has_key: hasKira(c.env),
   })
 )
 
@@ -1110,6 +1139,9 @@ export function createBindings(environment: Record<string, string | undefined>):
     EXPLABS_API_KEY: environment.EXPLABS_API_KEY,
     EXPLABS_BASE_URL: environment.EXPLABS_BASE_URL,
     EXPLABS_MODEL: environment.EXPLABS_MODEL,
+    KIRA_API_KEY: environment.KIRA_API_KEY,
+    KIRA_BASE_URL: environment.KIRA_BASE_URL,
+    KIRA_MODEL: environment.KIRA_MODEL,
   }
 }
 

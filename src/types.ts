@@ -9,6 +9,9 @@ export type Bindings = {
   EXPLABS_API_KEY?: string
   EXPLABS_BASE_URL?: string
   EXPLABS_MODEL?: string
+  KIRA_API_KEY?: string
+  KIRA_BASE_URL?: string
+  KIRA_MODEL?: string
   DATABASE_URL?: string
 }
 
