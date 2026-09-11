@@ -22,7 +22,9 @@ function makeRequest(method, pathname, body) {
   const chunks = body ? [new TextEncoder().encode(body)] : [];
   return {
     method,
-    url: `http://localhost${pathname}`,
+    // Vercel Node runtime truyền req.url dạng tương đối ("/agents"),
+    // handler của vercel-entry dùng điều kiện này để nhận diện kiểu invocation.
+    url: pathname,
     headers: {
       'content-type': 'application/json',
       host: 'localhost',
