@@ -1099,7 +1099,11 @@ app.get('/api/media/*', async (c) => {
     if (!downloadUrl) return c.json(bad('Media không tồn tại'), 404)
     const res = await fetch(downloadUrl)
     console.log('[DEBUG proxy] fetch dl status:', res.status, '| ct:', res.headers.get('content-type'))
-    if (!res.ok) return c.json(bad('Không tải được media'), 404)
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '')
+      console.log('[DEBUG proxy] dl 403 body:', errBody.slice(0, 300), '| dl path:', (()=>{try{return new URL(downloadUrl).pathname + ' | q:' + [...new URL(downloadUrl).searchParams.keys()].join(',')}catch{return '?'}})())
+      return c.json(bad('Không tải được media'), 404)
+    }
     const ct = res.headers.get('content-type') || meta.contentType || 'application/octet-stream'
     const buf = await res.arrayBuffer()
     return new Response(buf, {
