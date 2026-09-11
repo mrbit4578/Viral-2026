@@ -21,14 +21,34 @@ export async function putAsset(
     throw new Error('Chưa cấu hình BLOB_READ_WRITE_TOKEN (Vercel Blob)')
   }
   const size = body instanceof Uint8Array ? body.byteLength : body.byteLength
-  const blob = await put(key, body, {
-    access: 'public',
-    addRandomSuffix: false,
-    contentType,
-    token: env.BLOB_READ_WRITE_TOKEN,
-  })
-  // Lưu URL trực tiếp: Vercel Blob CDN phục vụ file lớn tốt hơn việc proxy qua Function.
-  return { key: blob.url, size, url: blob.url }
+  let blob: { url: string; pathname: string }
+  try {
+    // Thử public trước — tối ưu CDN cho store public
+    blob = await put(key, body, {
+      access: 'public',
+      addRandomSuffix: false,
+      contentType,
+      token: env.BLOB_READ_WRITE_TOKEN,
+    } as any)
+  } catch (err: any) {
+    const msg = String(err?.message || '').toLowerCase()
+    // Private store không cho phép public access → fallback không chỉ định access
+    // hoặc thử lại — Vercel Blob private store sẽ trả về pathname + url private
+    if (msg.includes('private') || msg.includes('access') || msg.includes('forbidden') || msg.includes('store')) {
+      blob = await put(key, body, {
+        addRandomSuffix: false,
+        contentType,
+        token: env.BLOB_READ_WRITE_TOKEN,
+      } as any)
+    } else {
+      throw err
+    }
+  }
+  // Fix Blob private-store: lưu pathname làm key (không lưu full URL)
+  // để /api/media/* có thể proxy qua head() + downloadUrl với token
+  // → hỗ trợ cả public và private store
+  const pathname = (blob as any).pathname || key
+  return { key: pathname, size, url: blob.url }
 }
 
 function toBase64(body: ArrayBuffer | Uint8Array): string {
@@ -68,12 +88,27 @@ export async function putAssetSmart(
 }
 
 export function assetUrl(key: string): string {
-  return /^(https:|data:|blob:)/i.test(key) ? key : `/api/media/${encodeURIComponent(key)}`
+  if (/^data:|^blob:/i.test(key)) return key
+  // Fix Blob private-store: vercel-storage URL phải đi qua proxy /api/media/*
+  // để dùng token (head + downloadUrl) — hỗ trợ private store
+  if (/^https:\/\//i.test(key)) {
+    if (/\.blob\.vercel-storage\.com\//i.test(key)) {
+      return `/api/media/${encodeURIComponent(key)}`
+    }
+    return key
+  }
+  // pathname như images/..., videos/... → proxy
+  return `/api/media/${encodeURIComponent(key)}`
 }
 
 export async function deleteAsset(env: Bindings, key: string): Promise<void> {
-  if (!env.BLOB_READ_WRITE_TOKEN || !/^https:\/\//i.test(key)) return
-  await del(key, { token: env.BLOB_READ_WRITE_TOKEN })
+  if (!env.BLOB_READ_WRITE_TOKEN) return
+  try {
+    // Fix private-store: key có thể là pathname hoặc full URL — del hỗ trợ cả hai
+    await del(key, { token: env.BLOB_READ_WRITE_TOKEN })
+  } catch {
+    // ignore — file có thể đã xóa hoặc không tồn tại
+  }
 }
 
 // ---------------------------------------------------------------- ảnh

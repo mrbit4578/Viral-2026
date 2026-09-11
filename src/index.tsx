@@ -882,7 +882,10 @@ app.post('/api/media/video/:blueprintId', async (c) => {
   const url = String(body.url || '')
   const contentType = String(body.content_type || 'video/mp4')
   const size = Math.max(0, Number(body.size) || 0)
-  if (!/^https:\/\/[^/]+\.public\.blob\.vercel-storage\.com\//.test(url)) {
+  // Fix Blob private-store: chấp nhận cả public blob URL, private blob URL, và pathname (videos/...)
+  const isBlobUrl = /^https:\/\/.*\.blob\.vercel-storage\.com\//.test(url)
+  const isPathname = /^(videos|audio|images|segments)\//.test(url)
+  if (!isBlobUrl && !isPathname) {
     return c.json(bad('URL Vercel Blob không hợp lệ'), 400)
   }
   if (size && size > 120 * 1024 * 1024) return c.json(bad('Video quá lớn (tối đa 120MB)'), 400)
@@ -1015,7 +1018,100 @@ app.post('/api/blob/upload', async (c) => {
 })
 
 app.get('/api/media/*', async (c) => {
-  return c.json(bad('Media mới được phục vụ trực tiếp qua Vercel Blob URL'), 404)
+  // Fix Blob private-store: proxy media qua Function với token
+  // Hỗ trợ cả pathname (images/xxx.jpg) và full blob URL (https://...vercel-storage.com/...)
+  // để private store hoạt động được
+  const rawPath = c.req.path.replace(/^\/api\/media\//, '')
+  if (!rawPath) return c.json(bad('Thiếu key'), 400)
+  let key: string
+  try {
+    key = decodeURIComponent(rawPath)
+  } catch {
+    key = rawPath
+  }
+  if (!key) return c.json(bad('Thiếu key'), 400)
+  if (key.startsWith('data:')) {
+    return c.json(bad('Data URL không thể proxy'), 400)
+  }
+
+  // Trường hợp key là full https URL (proxy cho private blob)
+  if (/^https:\/\//i.test(key)) {
+    try {
+      // Thử fetch trực tiếp trước (public blob)
+      const direct = await fetch(key)
+      if (direct.ok) {
+        const ct = direct.headers.get('content-type') || 'application/octet-stream'
+        const buf = await direct.arrayBuffer()
+        return new Response(buf, {
+          headers: {
+            'Content-Type': ct,
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'Content-Length': String(buf.byteLength),
+          },
+        })
+      }
+    } catch {
+      // bỏ qua, thử head fallback
+    }
+    // Fallback: extract pathname từ URL và dùng head() để lấy downloadUrl private
+    if (c.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const { head } = await import('@vercel/blob')
+        const urlObj = new URL(key)
+        const pathname = urlObj.pathname.replace(/^\//, '')
+        if (pathname) {
+          const meta = await (head as any)(pathname, { token: c.env.BLOB_READ_WRITE_TOKEN })
+          const dl = meta?.downloadUrl || meta?.url
+          if (dl) {
+            const res = await fetch(dl)
+            if (res.ok) {
+              const ct = res.headers.get('content-type') || meta.contentType || 'application/octet-stream'
+              const buf = await res.arrayBuffer()
+              return new Response(buf, {
+                headers: {
+                  'Content-Type': ct,
+                  'Cache-Control': 'public, max-age=31536000, immutable',
+                  'Content-Length': String(buf.byteLength),
+                },
+              })
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('blob proxy head fallback failed', String((e as any)?.message || e).slice(0, 200))
+      }
+    }
+    return c.json(bad('Không tải được media'), 404)
+  }
+
+  // key là pathname: images/..., videos/... etc
+  if (!c.env.BLOB_READ_WRITE_TOKEN) {
+    return c.json(bad('Chưa cấu hình BLOB_READ_WRITE_TOKEN'), 503)
+  }
+  try {
+    const { head } = await import('@vercel/blob')
+    const meta = await (head as any)(key, { token: c.env.BLOB_READ_WRITE_TOKEN })
+    const downloadUrl = meta?.downloadUrl || meta?.url
+    if (!downloadUrl) return c.json(bad('Media không tồn tại'), 404)
+    const res = await fetch(downloadUrl)
+    if (!res.ok) return c.json(bad('Không tải được media'), 404)
+    const ct = res.headers.get('content-type') || meta.contentType || 'application/octet-stream'
+    const buf = await res.arrayBuffer()
+    return new Response(buf, {
+      headers: {
+        'Content-Type': ct,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Content-Length': String(buf.byteLength),
+      },
+    })
+  } catch (e: any) {
+    const msg = String(e?.message || '')
+    if (msg.toLowerCase().includes('not found') || msg.includes('404')) {
+      return c.json(bad('Media không tồn tại'), 404)
+    }
+    console.error('blob proxy error', msg.slice(0, 300))
+    return c.json(bad('Lỗi proxy media'), 500)
+  }
 })
 
 // ------------------------------------------------------------------ BƯỚC 7: Phân phối MXH

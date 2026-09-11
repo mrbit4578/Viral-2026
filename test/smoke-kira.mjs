@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Smoke test for Kira AI integration + Kira media integration + previous fixes
- * 17 checks — must all pass — official docs: https://kiraai.vn/documents/
+ * Smoke test for Kira AI integration + Kira media integration + Blob private-store fix
+ * 22 checks — must all pass — official docs: https://kiraai.vn/documents/
  */
 import fs from 'fs'
 import path from 'path'
@@ -34,6 +34,7 @@ const llmTs = fs.readFileSync(path.join(root, 'src/lib/llm.ts'), 'utf8')
 const typesTs = fs.readFileSync(path.join(root, 'src/types.ts'), 'utf8')
 const indexTs = fs.readFileSync(path.join(root, 'src/index.tsx'), 'utf8')
 const dbTs = fs.readFileSync(path.join(root, 'src/lib/db.ts'), 'utf8')
+const mediaTs = fs.existsSync(path.join(root, 'src/lib/media.ts')) ? fs.readFileSync(path.join(root, 'src/lib/media.ts'), 'utf8') : ''
 const appJs = fs.readFileSync(path.join(root, 'public/static/app.js'), 'utf8')
 const bundleExists = fs.existsSync(path.join(root, 'server/function-bundle.cjs'))
 
@@ -122,5 +123,30 @@ check('src/index.tsx has Kira media endpoints + auto fallback + video', () => {
   return indexTs.includes('/api/kira/image') && indexTs.includes('/api/kira/speech') && indexTs.includes('/api/kira/video') && indexTs.includes('kira_image_models') && indexTs.includes('kira_voices') && indexTs.includes('generateKiraImage') && indexTs.includes('generateKiraSpeech') && indexTs.includes('generateKiraVideoStart')
 })
 
-console.log(`\n--- Kira smoke: ${passed}/17 passed, ${failed} failed ---`)
+// 18 — Blob private-store fix: putAsset returns pathname not full URL as key
+check('src/lib/media.ts fix Blob private-store: putAsset returns pathname', () => {
+  return mediaTs.includes('pathname') && mediaTs.includes('Fix Blob private-store') && mediaTs.includes('key: pathname') && !mediaTs.includes('key: blob.url, size, url: blob.url }')
+})
+
+// 19 — Blob private-store fix: assetUrl proxies vercel-storage URLs via /api/media
+check('src/lib/media.ts assetUrl proxies private blob via /api/media', () => {
+  return mediaTs.includes('assetUrl') && mediaTs.includes('vercel-storage') && mediaTs.includes('encodeURIComponent') && mediaTs.includes('Fix Blob private-store')
+})
+
+// 20 — Blob private-store fix: deleteAsset handles pathname + URL
+check('src/lib/media.ts deleteAsset handles pathname (private-store)', () => {
+  return mediaTs.includes('deleteAsset') && mediaTs.includes('del(key') && mediaTs.includes('BLOB_READ_WRITE_TOKEN')
+})
+
+// 21 — Blob private-store fix: /api/media/* serves blob via head+downloadUrl not 404
+check('src/index.tsx /api/media/* serves blob via head+downloadUrl (private-store fix)', () => {
+  return indexTs.includes('/api/media/*') && indexTs.includes('head') && indexTs.includes('downloadUrl') && indexTs.includes('Fix Blob private-store') && !indexTs.includes("return c.json(bad('Media mới được phục vụ trực tiếp qua Vercel Blob URL'), 404)")
+})
+
+// 22 — Blob private-store fix: /api/media/video accepts pathname + blob URL
+check('src/index.tsx /api/media/video accepts pathname + blob URL (private-store)', () => {
+  return indexTs.includes('/api/media/video') && indexTs.includes('isBlobUrl') && indexTs.includes('isPathname') && indexTs.includes('vercel-storage')
+})
+
+console.log(`\n--- Kira smoke: ${passed}/22 passed, ${failed} failed ---`)
 if (failed > 0) process.exit(1)
